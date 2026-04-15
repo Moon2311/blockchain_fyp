@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+{% block title %}Evidence #{{ evidence.id if evidence else '?' }}{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center mb-4 gap-3">
+  <a href="{{ url_for('evidence_list') }}" class="btn btn-outline-secondary btn-sm">
+    <i class="fa-solid fa-arrow-left"></i>
+  </a>
+  <div>
+    <h2 class="fw-bold mb-0">
+      <i class="fa-solid fa-file-shield me-2 text-primary-custom"></i>
+      Evidence #{{ evidence.id if evidence else '—' }}
+    </h2>
+    <p class="text-muted small mb-0">Chain of Custody — Immutable Blockchain Record</p>
+  </div>
+</div>
+
+{% if evidence %}
+
+<!-- ── Evidence Metadata ────────────────────────────────────────── -->
+<div class="row g-4 mb-4">
+  <div class="col-lg-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header bg-transparent fw-bold border-0">
+        <i class="fa-solid fa-circle-info me-2 text-info"></i>Metadata
+      </div>
+      <div class="card-body">
+        <table class="table table-sm table-borderless mb-0">
+          <tr><th class="text-muted w-40">Evidence ID</th><td><span class="badge bg-secondary">#{{ evidence.id }}</span></td></tr>
+          <tr><th class="text-muted">File Name</th><td><strong>{{ evidence.fileName }}</strong></td></tr>
+          <tr><th class="text-muted">File Type</th><td><code>{{ evidence.fileType }}</code></td></tr>
+          <tr><th class="text-muted">File Size</th><td>{{ (evidence.fileSize / 1024) | round(2) }} KB</td></tr>
+          <tr><th class="text-muted">Collected By</th><td>{{ evidence.uploadedBy }}</td></tr>
+          <tr><th class="text-muted">Collected At</th><td>{{ evidence.createdAt }}</td></tr>
+          <tr><th class="text-muted">Encrypted</th>
+            <td>
+              {% if evidence.encrypted %}
+              <span class="badge bg-warning text-dark"><i class="fa-solid fa-lock me-1"></i>Yes (AES/Fernet)</span>
+              {% else %}
+              <span class="badge bg-light text-secondary border">No</span>
+              {% endif %}
+            </td>
+          </tr>
+          <tr><th class="text-muted">Custody Events</th>
+            <td><span class="badge bg-primary-custom">{{ evidence.events }}</span></td>
+          </tr>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header bg-transparent fw-bold border-0">
+        <i class="fa-solid fa-fingerprint me-2 text-success"></i>SHA-256 Hash (Blockchain Stored)
+      </div>
+      <div class="card-body d-flex flex-column justify-content-center">
+        <div class="hash-display p-3 rounded-3 bg-dark font-monospace text-success small mb-3"
+             style="word-break:break-all;">
+          {{ evidence.fileHash }}
+        </div>
+        <p class="small text-muted mb-0">
+          <i class="fa-solid fa-circle-check text-success me-1"></i>
+          This hash is permanently stored on the Ethereum blockchain and cannot be altered.
+          Any modification to the original file will produce a different hash.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Log New Action ─────────────────────────────────────────────── -->
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header bg-transparent fw-bold border-0">
+    <i class="fa-solid fa-pen-to-square me-2 text-warning"></i>Log Custody Action
+  </div>
+  <div class="card-body">
+    <form method="POST" action="{{ url_for('log_action', evidence_id=evidence.id) }}"
+          class="row g-3 align-items-end">
+      <div class="col-md-3">
+        <label class="form-label fw-semibold small">Action Type</label>
+        <select name="action" class="form-select" required>
+          {% for name in action_names.values() %}
+          {% if name != 'Collected' %}
+          <option>{{ name }}</option>
+          {% endif %}
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label fw-semibold small">Notes</label>
+        <input type="text" name="notes" class="form-control"
+               placeholder="e.g. Transferred to lab for analysis…" required/>
+      </div>
+      <div class="col-md-3">
+        <button type="submit" class="btn btn-warning w-100 fw-bold">
+          <i class="fa-solid fa-link me-2"></i>Record on Chain
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ── Verify shortcut ────────────────────────────────────────────── -->
+<div class="mb-4 text-end">
+  <a href="{{ url_for('verify') }}" class="btn btn-outline-success">
+    <i class="fa-solid fa-shield-check me-2"></i>Verify This Evidence Integrity
+  </a>
+</div>
+
+<!-- ── Chain of Custody Timeline ─────────────────────────────────── -->
+<div class="card border-0 shadow-sm">
+  <div class="card-header bg-transparent fw-bold border-0 d-flex justify-content-between">
+    <span><i class="fa-solid fa-timeline me-2 text-primary-custom"></i>Chain of Custody Timeline</span>
+    <span class="badge bg-primary-custom">{{ chain | length }} events</span>
+  </div>
+  <div class="card-body">
+    <div class="timeline">
+      {% for ev in chain %}
+      <div class="timeline-item">
+        <div class="timeline-dot
+          {% if ev.action == 'Collected' %}bg-success
+          {% elif ev.action == 'Transferred' %}bg-primary
+          {% elif ev.action == 'Analyzed' %}bg-info
+          {% elif ev.action == 'Verified' %}bg-warning
+          {% elif ev.action == 'Archived' %}bg-secondary
+          {% else %}bg-dark{% endif %}">
+        </div>
+        <div class="timeline-content card border-0 bg-light mb-3">
+          <div class="card-body py-2 px-3">
+            <div class="d-flex justify-content-between align-items-start">
+              <div>
+                <span class="badge
+                  {% if ev.action == 'Collected' %}bg-success
+                  {% elif ev.action == 'Transferred' %}bg-primary
+                  {% elif ev.action == 'Analyzed' %}bg-info text-dark
+                  {% elif ev.action == 'Verified' %}bg-warning text-dark
+                  {% elif ev.action == 'Archived' %}bg-secondary
+                  {% else %}bg-dark{% endif %} me-2">
+                  {{ ev.action }}
+                </span>
+                <strong>{{ ev.actor }}</strong>
+              </div>
+              <small class="text-muted">{{ ev.datetime }}</small>
+            </div>
+            {% if ev.notes %}
+            <p class="text-muted small mb-1 mt-1">{{ ev.notes }}</p>
+            {% endif %}
+            <code class="small text-muted">Hash: {{ ev.fileHash[:32] }}…</code>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+{% else %}
+<div class="alert alert-danger">
+  Evidence not found on blockchain or blockchain not accessible.
+</div>
+{% endif %}
+{% endblock %}

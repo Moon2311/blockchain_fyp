@@ -1,0 +1,148 @@
+/* ── CSS Variables ──────────────────────────────────────────────── */
+:root {
+  --primary:      #4f46e5;
+  --primary-dark: #3730a3;
+  --primary-light:#ede9fe;
+  --success-light:#dcfce7;
+  --warning-light:#fef9c3;
+  --info-light:   #e0f2fe;
+  --bg:           #f8fafc;
+  --sidebar:      #1e1e2e;
+}
+
+/* ── Global ─────────────────────────────────────────────────────── */
+body {
+  background: var(--bg);
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+/* ── Navbar ─────────────────────────────────────────────────────── */
+.bg-dark-custom {
+  background: #1e1e2e !important;
+}
+.text-primary-custom { color: var(--primary) !important; }
+.bg-primary-custom   { background: var(--primary) !important; }
+.btn-primary-custom {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+.btn-primary-custom:hover {
+  background: var(--primary-dark);
+  border-color: var(--primary-dark);
+  color: #fff;
+}
+.bg-role   { background: #7c3aed !important; }
+.text-muted-nav { color: #9ca3af; }
+.fs-tiny   { font-size: .65rem; }
+.fs-sm     { font-size: .75rem; }
+
+/* ── Stat Cards ─────────────────────────────────────────────────── */
+.stat-card {
+  border-radius: 12px !important;
+  transition: transform .2s, box-shadow .2s;
+}
+.stat-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,.1) !important; }
+.stat-icon {
+  width: 52px; height: 52px;
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.bg-primary-light  { background: var(--primary-light); }
+.bg-success-light  { background: var(--success-light); }
+.bg-warning-light  { background: var(--warning-light); }
+.bg-info-light     { background: var(--info-light); }
+
+/* ── Action Cards (quick actions) ────────────────────────────────── */
+.action-card {
+  border-radius: 12px !important;
+  transition: transform .2s, box-shadow .2s;
+  color: inherit;
+}
+.action-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 28px rgba(0,0,0,.12) !important;
+  color: inherit;
+}
+
+/* ── Login ───────────────────────────────────────────────────────── */
+.login-body {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #1e1e2e 0%, #312e81 100%);
+  display: flex; align-items: center; justify-content: center;
+}
+.login-wrapper { width: 100%; max-width: 440px; padding: 1.5rem; }
+.login-card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 2.5rem;
+}
+.login-icon {
+  width: 64px; height: 64px;
+  background: var(--primary-light);
+  border-radius: 16px;
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto;
+}
+
+/* ── Hash Display ───────────────────────────────────────────────── */
+.hash-display {
+  letter-spacing: .03em;
+  border: 1px solid #374151;
+}
+.hash-short {
+  font-size: .78rem;
+  cursor: pointer;
+}
+
+/* ── Drop Zone ───────────────────────────────────────────────────── */
+.drop-zone {
+  border: 2px dashed #c7d2fe;
+  border-radius: 12px;
+  padding: 2.5rem;
+  text-align: center;
+  cursor: pointer;
+  transition: background .2s, border-color .2s;
+  background: #f5f3ff;
+}
+.drop-zone:hover, .drop-zone.drag-over {
+  background: #ede9fe;
+  border-color: var(--primary);
+}
+
+/* ── Timeline ────────────────────────────────────────────────────── */
+.timeline { position: relative; padding-left: 2rem; }
+.timeline::before {
+  content: '';
+  position: absolute;
+  left: 10px; top: 0; bottom: 0;
+  width: 2px;
+  background: #e2e8f0;
+}
+.timeline-item { position: relative; margin-bottom: 1rem; }
+.timeline-dot {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  position: absolute;
+  left: -1.65rem;
+  top: .6rem;
+  border: 3px solid #fff;
+  box-shadow: 0 0 0 2px #e2e8f0;
+}
+.timeline-content { border-radius: 10px !important; }
+
+/* ── Footer ─────────────────────────────────────────────────────── */
+.footer-custom {
+  background: #f1f5f9;
+  border-top: 1px solid #e2e8f0;
+}
+
+/* ── Table ───────────────────────────────────────────────────────── */
+.table th { font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; }
+.w-40 { width: 40%; }
+
+/* ── Scrollbar ───────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #f1f5f9; }
+::-webkit-scrollbar-thumb { background: #c7d2fe; border-radius: 3px; }

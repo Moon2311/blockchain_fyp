@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block title %}Evidence List{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h2 class="fw-bold mb-0">
+      <i class="fa-solid fa-folder-open me-2 text-primary-custom"></i>Evidence Registry
+    </h2>
+    <p class="text-muted small mb-0">All evidence items recorded on the blockchain</p>
+  </div>
+  <a href="{{ url_for('upload') }}" class="btn btn-primary-custom">
+    <i class="fa-solid fa-plus me-2"></i>Add Evidence
+  </a>
+</div>
+
+{% if not status.connected or not status.deployed %}
+<div class="alert alert-warning">
+  <i class="fa-solid fa-triangle-exclamation me-2"></i>
+  {% if not status.connected %}Ganache is not connected.{% endif %}
+  {% if not status.deployed %}Contract is not deployed — run <code>python deploy.py</code>.{% endif %}
+</div>
+{% endif %}
+
+<!-- Search bar -->
+<div class="mb-3">
+  <input type="text" id="searchInput" class="form-control" placeholder="🔍  Search by ID, filename, type or uploader…"/>
+</div>
+
+{% if items %}
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-0">
+    <table class="table table-hover align-middle mb-0" id="evidenceTable">
+      <thead class="table-dark">
+        <tr>
+          <th>#ID</th>
+          <th>File Name</th>
+          <th>Type</th>
+          <th>Size</th>
+          <th>SHA-256 Hash</th>
+          <th>Uploaded By</th>
+          <th>Date</th>
+          <th>Events</th>
+          <th>Flags</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in items %}
+        <tr>
+          <td><span class="badge bg-secondary">#{{ item.id }}</span></td>
+          <td>
+            <i class="fa-solid fa-file me-1 text-muted"></i>
+            <strong>{{ item.fileName }}</strong>
+          </td>
+          <td><code>{{ item.fileType }}</code></td>
+          <td class="small text-muted">{{ (item.fileSize / 1024) | round(1) }} KB</td>
+          <td>
+            <code class="hash-short" title="{{ item.fileHash }}">
+              {{ item.fileHash[:16] }}…
+            </code>
+          </td>
+          <td>{{ item.uploadedBy }}</td>
+          <td class="small text-muted">{{ item.createdAt }}</td>
+          <td>
+            <span class="badge bg-primary-custom">{{ item.events }}</span>
+          </td>
+          <td>
+            {% if item.encrypted %}
+            <span class="badge bg-warning text-dark">
+              <i class="fa-solid fa-lock"></i> Encrypted
+            </span>
+            {% else %}
+            <span class="badge bg-light text-secondary border">Plain</span>
+            {% endif %}
+          </td>
+          <td class="d-flex gap-1">
+            <a href="{{ url_for('evidence_detail', evidence_id=item.id) }}"
+               class="btn btn-sm btn-outline-primary" title="View chain of custody">
+              <i class="fa-solid fa-eye"></i>
+            </a>
+            <a href="{{ url_for('verify') }}?eid={{ item.id }}"
+               class="btn btn-sm btn-outline-success" title="Verify integrity">
+              <i class="fa-solid fa-shield-check"></i>
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+<p class="text-muted small mt-2">{{ items | length }} evidence item(s) found on blockchain.</p>
+
+{% else %}
+<div class="text-center py-5">
+  <i class="fa-solid fa-inbox fa-4x text-muted mb-3"></i>
+  <h5 class="text-muted">No evidence on blockchain yet</h5>
+  <a href="{{ url_for('upload') }}" class="btn btn-primary-custom mt-2">
+    <i class="fa-solid fa-upload me-2"></i>Upload First Evidence
+  </a>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Live client-side search
+document.getElementById('searchInput').addEventListener('input', function () {
+  const q = this.value.toLowerCase();
+  document.querySelectorAll('#evidenceTable tbody tr').forEach(row => {
+    row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+  });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% block title %}Verify Evidence{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-7">
+
+    <div class="d-flex align-items-center mb-4 gap-3">
+      <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary btn-sm">
+        <i class="fa-solid fa-arrow-left"></i>
+      </a>
+      <div>
+        <h2 class="fw-bold mb-0">
+          <i class="fa-solid fa-shield-check me-2 text-success"></i>Verify Evidence Integrity
+        </h2>
+        <p class="text-muted small mb-0">Re-upload a file to check if it has been tampered with</p>
+      </div>
+    </div>
+
+    <!-- ── Result Banner ──────────────────────────────────────────────── -->
+    {% if result %}
+    <div class="alert {% if result.authentic %}alert-success{% else %}alert-danger{% endif %} shadow-sm mb-4">
+      <div class="d-flex align-items-center gap-3">
+        <i class="fa-solid {% if result.authentic %}fa-circle-check fa-3x{% else %}fa-circle-xmark fa-3x{% endif %}"></i>
+        <div>
+          <h4 class="fw-bold mb-1">
+            {% if result.authentic %}✅ AUTHENTIC — File Integrity Confirmed{% else %}❌ TAMPERED — Hash Mismatch Detected{% endif %}
+          </h4>
+          <p class="mb-0">Evidence #{{ result.evidence_id }} · <strong>{{ result.file_name }}</strong></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Hash comparison -->
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-header bg-transparent fw-bold border-0">
+        <i class="fa-solid fa-code-compare me-2 text-info"></i>Hash Comparison
+      </div>
+      <div class="card-body">
+        <div class="mb-3">
+          <label class="form-label small fw-semibold text-muted">Blockchain Stored Hash (Original)</label>
+          <div class="hash-display p-2 rounded bg-dark font-monospace text-success small"
+               style="word-break:break-all;">{{ result.stored_hash }}</div>
+        </div>
+        <div class="mb-2">
+          <label class="form-label small fw-semibold text-muted">New File Hash (Just Computed)</label>
+          <div class="hash-display p-2 rounded bg-dark font-monospace
+            {% if result.authentic %}text-success{% else %}text-danger{% endif %} small"
+               style="word-break:break-all;">{{ result.new_hash }}</div>
+        </div>
+        {% if result.authentic %}
+        <div class="alert alert-success py-2 mb-0">
+          <i class="fa-solid fa-equals me-2"></i>Hashes match perfectly. File has not been modified.
+        </div>
+        {% else %}
+        <div class="alert alert-danger py-2 mb-0">
+          <i class="fa-solid fa-not-equal me-2"></i>Hashes do NOT match. The file has been altered or is different from the original.
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="text-center mb-4">
+      <a href="{{ url_for('evidence_detail', evidence_id=result.evidence_id) }}"
+         class="btn btn-outline-primary me-2">
+        <i class="fa-solid fa-timeline me-1"></i>View Chain of Custody
+      </a>
+      <a href="{{ url_for('verify') }}" class="btn btn-outline-secondary">
+        <i class="fa-solid fa-rotate me-1"></i>Verify Another
+      </a>
+    </div>
+    {% endif %}
+
+    <!-- ── Verification Form ──────────────────────────────────────── -->
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-transparent fw-bold border-0">
+        <i class="fa-solid fa-magnifying-glass me-2"></i>Run Verification
+      </div>
+      <div class="card-body p-4">
+        <form method="POST" enctype="multipart/form-data" id="verifyForm">
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Evidence ID</label>
+            <div class="input-group">
+              <span class="input-group-text"><i class="fa-solid fa-hashtag"></i></span>
+              <input type="number" name="evidence_id" class="form-control"
+                     placeholder="Enter evidence ID (e.g. 1)"
+                     min="1" max="{{ evidence_count }}" required
+                     value="{{ request.args.get('eid', '') }}"/>
+            </div>
+            <div class="form-text">{{ evidence_count }} evidence items on blockchain.</div>
+          </div>
+
+          <div class="mb-4">
+            <label class="form-label fw-semibold">Upload File to Verify</label>
+            <input type="file" name="file" id="verifyFile" class="form-control" required/>
+            <div class="form-text">
+              Upload the same file you originally submitted. The system will compute
+              its SHA-256 hash and compare it with the blockchain record.
+            </div>
+          </div>
+
+          <!-- Live hash preview -->
+          <div id="liveHash" class="mb-3" style="display:none;">
+            <label class="form-label small text-muted fw-semibold">Computed SHA-256 (client-side preview)</label>
+            <div class="hash-display p-2 rounded bg-dark font-monospace text-warning small"
+                 id="liveHashValue" style="word-break:break-all;"></div>
+          </div>
+
+          <button type="submit" class="btn btn-success w-100 fw-bold py-2" id="verifyBtn">
+            <i class="fa-solid fa-shield-check me-2"></i>Verify Integrity
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- How it works -->
+    <div class="card border-0 shadow-sm mt-4 bg-light">
+      <div class="card-body">
+        <h6 class="fw-bold"><i class="fa-solid fa-circle-info me-2 text-info"></i>How Verification Works</h6>
+        <ol class="small text-muted mb-0">
+          <li>You re-upload the file you want to verify.</li>
+          <li>The server computes its SHA-256 hash.</li>
+          <li>The hash is compared with the one stored immutably on the blockchain.</li>
+          <li><strong>Match</strong> → File is authentic and unmodified.</li>
+          <li><strong>Mismatch</strong> → File has been tampered with or replaced.</li>
+          <li>The verification event is logged on the blockchain automatically.</li>
+        </ol>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const fileInput = document.getElementById('verifyFile');
+fileInput.addEventListener('change', async () => {
+  const file = fileInput.files[0];
+  if (!file) return;
+  const buf    = await file.arrayBuffer();
+  const digest = await crypto.subtle.digest('SHA-256', buf);
+  const hex    = Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2,'0')).join('');
+  document.getElementById('liveHash').style.display = '';
+  document.getElementById('liveHashValue').textContent = hex;
+});
+
+document.getElementById('verifyForm').addEventListener('submit', () => {
+  const btn = document.getElementById('verifyBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Verifying on Blockchain…';
+});
+</script>
+{% endblock %}
