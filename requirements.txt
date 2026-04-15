@@ -1,5 +1,26 @@
-flask>=3.0.0
+# Chain of Custody (FYP) — Python dependencies
+#
+# Install (from this directory or repo root):
+#   python3 -m pip install --upgrade pip
+#   python3 -m pip install -r requirements.txt
+#
+# Recommended: use a virtual environment first:
+#   python3 -m venv .venv
+#   source .venv/bin/activate          # Linux / macOS
+#   .venv\Scripts\activate             # Windows
+#   python3 -m pip install -r requirements.txt
+#
+# --- Web app (backend/app.py, templates) ---
+flask>=3.0.0,<4
+werkzeug>=3.0.0,<4
+jinja2>=3.1.0
+
+# --- Database (SQLAlchemy ORM + SQLite file custody.db) ---
+sqlalchemy>=2.0.0
+
+# --- Blockchain & contract deploy (backend/*, deploy.py) ---
 web3>=6.15.0
 py-solc-x>=2.0.2
+
+# --- Encryption (Fernet keys / uploads) ---
 cryptography>=42.0.0
-werkzeug>=3.0.0

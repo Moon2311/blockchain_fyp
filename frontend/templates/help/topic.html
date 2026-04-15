@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}{{ topic.title }}{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-8">
+    <nav aria-label="breadcrumb" class="mb-3">
+      <ol class="breadcrumb mb-0">
+        <li class="breadcrumb-item"><a href="{{ url_for('help.help_index') }}">Help</a></li>
+        <li class="breadcrumb-item active" aria-current="page">{{ topic.title }}</li>
+      </ol>
+    </nav>
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h1 class="h4 card-title mb-3">{{ topic.title }}</h1>
+        <div class="help-body">{{ topic.body | safe }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
