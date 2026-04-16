@@ -7,9 +7,11 @@ import time
 from web3 import Web3
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-GANACHE_URL = "http://127.0.0.1:7545"
+GANACHE_URL = os.environ.get("GANACHE_URL", "http://127.0.0.1:7545")
 ABI_FILE = os.path.join(BASE_DIR, "contract_abi.json")
 ADDRESS_FILE = os.path.join(BASE_DIR, "contract_address.txt")
+# Optional: set after Remix deploy without editing files (same value as contract_address.txt)
+_ENV_CONTRACT = os.environ.get("CHAIN_CUSTODY_CONTRACT_ADDRESS", "").strip()
 
 w3 = Web3(Web3.HTTPProvider(GANACHE_URL))
 
@@ -23,14 +25,35 @@ ACTION_NAMES = {
 ACTION_CODES = {v: k for k, v in ACTION_NAMES.items()}
 
 
-def load_contract():
-    if not os.path.exists(ABI_FILE) or not os.path.exists(ADDRESS_FILE):
+def _read_contract_address() -> str | None:
+    """Address from env (Remix / CI) or first non-comment line in contract_address.txt."""
+    if _ENV_CONTRACT:
+        return _ENV_CONTRACT
+    if not os.path.isfile(ADDRESS_FILE):
         return None
-    with open(ABI_FILE) as f:
+    with open(ADDRESS_FILE, encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            return line
+    return None
+
+
+def load_contract():
+    if not os.path.isfile(ABI_FILE):
+        return None
+    address = _read_contract_address()
+    if not address:
+        return None
+    with open(ABI_FILE, encoding="utf-8") as f:
         abi = json.load(f)
-    with open(ADDRESS_FILE) as f:
-        address = f.read().strip()
-    return w3.eth.contract(address=address, abi=abi)
+    try:
+        return w3.eth.contract(
+            address=Web3.to_checksum_address(address), abi=abi
+        )
+    except ValueError:
+        return None
 
 
 contract = load_contract()

@@ -16,7 +16,7 @@ from solcx import compile_source, install_solc, get_installed_solc_versions
 from web3 import Web3
 
 # ── Configuration ──────────────────────────────────────────────────────────────
-GANACHE_URL = "http://127.0.0.1:7545"   # default Ganache GUI port
+GANACHE_URL = os.environ.get("GANACHE_URL", "http://127.0.0.1:7545")  # Ganache GUI default
 CONTRACT_FILE = os.path.join(os.path.dirname(__file__), "contracts", "ChainOfCustody.sol")
 ABI_OUTPUT    = os.path.join(os.path.dirname(__file__), "backend", "contract_abi.json")
 ADDRESS_FILE  = os.path.join(os.path.dirname(__file__), "backend", "contract_address.txt")
