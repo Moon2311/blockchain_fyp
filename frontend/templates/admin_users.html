@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Admin — Users{% endblock %}
+
+{% block content %}
+<h2 class="fw-bold mb-4">Users &amp; roles</h2>
+<p class="text-muted">Demo accounts (edit <code>users_config.py</code> in production).</p>
+
+<table class="table table-sm">
+  <thead>
+    <tr><th>Username</th><th>Name</th><th>Role</th></tr>
+  </thead>
+  <tbody>
+    {% for u, d in users.items() %}
+    <tr>
+      <td><code>{{ u }}</code></td>
+      <td>{{ d.name }}</td>
+      <td><span class="badge bg-secondary">{{ d.role }}</span></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<h3 class="mt-4">Add user</h3>
+<form method="POST" class="row g-2">
+  <div class="col-md-3">
+    <input name="username" class="form-control" placeholder="username" required/>
+  </div>
+  <div class="col-md-3">
+    <input type="password" name="password" class="form-control" placeholder="password" required/>
+  </div>
+  <div class="col-md-3">
+    <input name="name" class="form-control" placeholder="display name" required/>
+  </div>
+  <div class="col-md-3">
+    <select name="role" class="form-select">
+      <option value="Member">Member</option>
+      <option value="Investigator">Investigator</option>
+      <option value="Admin">Admin</option>
+    </select>
+  </div>
+  <div class="col-md-12">
+    <button type="submit" class="btn btn-primary">Add user</button>
+  </div>
+</form>
+{% endblock %}

@@ -3,25 +3,29 @@ app.py  –  Flask backend for Blockchain Chain of Custody (FYP)
 Author  : M. Talha  |  Roll: fa-2022/BS/DFCS/075
 
 Run:
-    python app.py
-
-Prerequisites:
-    1. Ganache running on port 7545
-    2. deploy.py executed at least once (generates contract_abi.json & contract_address.txt)
-    3. pip install flask web3 cryptography
+    cd backend && python app.py
 """
 
 import hashlib
-import json
 import os
 import time
 
 from cryptography.fernet import Fernet
-from flask import Flask, flash, redirect, render_template, request, session, url_for
+from flask import (
+    Flask,
+    current_app,
+    flash,
+    redirect,
+    render_template,
+    request,
+    session,
+    url_for,
+)
+from sqlalchemy import func, select
 from werkzeug.utils import secure_filename
 
 from api_routes import api_bp
-from auth import login_required
+from auth import login_required, role_required
 from blockchain_utils import (
     ACTION_CODES,
     ACTION_NAMES,
@@ -31,12 +35,34 @@ from blockchain_utils import (
     get_ganache_account,
     w3,
 )
-from database import init_db
+from custody_services import (
+    add_security_alert,
+    compute_integrity_score,
+    detect_suspicious_activity,
+    is_evidence_locked,
+    log_audit,
+    record_verification,
+    role_can_log_action,
+    sign_action_hmac,
+    try_ipfs_add_file,
+    validate_custody_chain,
+)
+from database import (
+    CaseEvidenceLink,
+    ForensicCase,
+    OffChainEvidenceMeta,
+    SecurityAlert,
+    SessionLocal,
+    TransferRequest,
+    init_db,
+)
+from features_routes import features_bp
 from help_routes import help_bp
+from users_config import USERS, all_usernames
 
 # ── App Setup ──────────────────────────────────────────────────────────────────
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-ROOT_DIR = os.path.dirname(BASE_DIR)  # fyp/
+ROOT_DIR = os.path.dirname(BASE_DIR)
 UPLOAD_DIR = os.path.join(ROOT_DIR, "uploads")
 KEY_FILE = os.path.join(BASE_DIR, "fernet.key")
 
@@ -48,11 +74,32 @@ app = Flask(
     static_folder=os.path.join(ROOT_DIR, "frontend", "static"),
 )
 app.secret_key = "fyp-blockchain-custody-secret-2024"
-app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024  # 50 MB
+app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024
 
 init_db()
 app.register_blueprint(help_bp)
 app.register_blueprint(api_bp)
+app.register_blueprint(features_bp)
+
+
+@app.context_processor
+def inject_nav_counts():
+    if "user" not in session:
+        return {}
+    with SessionLocal() as db:
+        q = select(func.count()).select_from(TransferRequest).where(
+            TransferRequest.status == "pending"
+        )
+        if session.get("role") != "Admin":
+            q = q.where(TransferRequest.to_username == session["user"])
+        pending = db.scalar(q) or 0
+        unack = db.scalar(
+            select(func.count())
+            .select_from(SecurityAlert)
+            .where(SecurityAlert.acknowledged.is_(False))
+        ) or 0
+    return {"nav_pending_transfers": pending, "nav_alerts_unack": unack}
+
 
 ALLOWED_EXTENSIONS = {
     "pdf",
@@ -70,7 +117,6 @@ ALLOWED_EXTENSIONS = {
     "json",
 }
 
-# ── Encryption Key ─────────────────────────────────────────────────────────────
 if os.path.exists(KEY_FILE):
     with open(KEY_FILE, "rb") as f:
         FERNET_KEY = f.read()
@@ -81,36 +127,27 @@ else:
 
 fernet = Fernet(FERNET_KEY)
 
-# ── Helpers ────────────────────────────────────────────────────────────────────
+
 def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
-
-
-def sha256_file(filepath):
-    h = hashlib.sha256()
-    with open(filepath, "rb") as f:
-        for chunk in iter(lambda: f.read(65536), b""):
-            h.update(chunk)
-    return h.hexdigest()
 
 
 def sha256_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-# ── Mock user store (extend with DB for production) ────────────────────────────
-USERS = {
-    "admin": {"password": "admin123", "role": "Admin", "name": "Admin User"},
-    "investigator": {
-        "password": "inv123",
-        "role": "Investigator",
-        "name": "Ali Investigator",
-    },
-    "analyst": {"password": "analyst123", "role": "Analyst", "name": "Sara Analyst"},
-}
+def _parse_optional_float(form, key):
+    v = form.get(key, "").strip()
+    if not v:
+        return None
+    try:
+        return float(v)
+    except ValueError:
+        return None
+
 
 # ══════════════════════════════════════════════════════════════════════════════
-#  AUTH ROUTES
+#  AUTH
 # ══════════════════════════════════════════════════════════════════════════════
 
 
@@ -177,16 +214,29 @@ def dashboard():
             stats["recent"] = list(reversed(recent))
         except Exception as e:
             flash(f"Blockchain read error: {e}", "warning")
-    return render_template("dashboard.html", status=status, stats=stats)
+    recent_alerts = []
+    with SessionLocal() as db:
+        recent_alerts = db.scalars(
+            select(SecurityAlert)
+            .order_by(SecurityAlert.created_at.desc())
+            .limit(8)
+        ).all()
+    return render_template(
+        "dashboard.html",
+        status=status,
+        stats=stats,
+        recent_alerts=recent_alerts,
+    )
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-#  EVIDENCE – Upload
+#  UPLOAD
 # ══════════════════════════════════════════════════════════════════════════════
 
 
 @app.route("/upload", methods=["GET", "POST"])
 @login_required
+@role_required("Admin", "Investigator")
 def upload():
     if request.method == "POST":
         if "file" not in request.files:
@@ -199,6 +249,7 @@ def upload():
         notes = request.form.get(
             "notes", "Evidence collected and recorded on blockchain"
         )
+        case_id = request.form.get("case_id", type=int)
 
         if file.filename == "":
             flash("No file selected.", "danger")
@@ -210,11 +261,8 @@ def upload():
 
         filename = secure_filename(file.filename)
         raw_bytes = file.read()
-
-        # SHA-256 of ORIGINAL file (before optional encryption)
         file_hash = sha256_bytes(raw_bytes)
 
-        # Optionally encrypt
         stored_bytes = fernet.encrypt(raw_bytes) if encrypt else raw_bytes
         save_name = ("enc_" + filename) if encrypt else filename
         save_path = os.path.join(UPLOAD_DIR, save_name)
@@ -241,6 +289,44 @@ def upload():
             w3.eth.wait_for_transaction_receipt(tx_hash)
 
             ev_id = contract.functions.getEvidenceCount().call()
+
+            ipfs_cid = try_ipfs_add_file(save_path)
+            with SessionLocal() as db:
+                db.merge(
+                    OffChainEvidenceMeta(
+                        evidence_id=ev_id,
+                        relative_filename=save_name,
+                        ipfs_cid=ipfs_cid,
+                        storage_mode="hybrid" if ipfs_cid else "local",
+                    )
+                )
+                if case_id:
+                    case = db.get(ForensicCase, case_id)
+                    if case:
+                        exists = db.scalar(
+                            select(func.count())
+                            .select_from(CaseEvidenceLink)
+                            .where(
+                                CaseEvidenceLink.case_id == case_id,
+                                CaseEvidenceLink.evidence_id == ev_id,
+                            )
+                        )
+                        if not exists:
+                            db.add(
+                                CaseEvidenceLink(
+                                    case_id=case_id, evidence_id=ev_id
+                                )
+                            )
+                log_audit(
+                    db,
+                    username=session["user"],
+                    action="evidence_register",
+                    detail=notes[:500] if notes else None,
+                    evidence_id=ev_id,
+                    case_id=case_id if case_id else None,
+                )
+                db.commit()
+
             flash(
                 f"✅ Evidence #{ev_id} recorded on blockchain! "
                 f"Hash: {file_hash[:20]}…",
@@ -256,11 +342,15 @@ def upload():
             next_id = contract.functions.getEvidenceCount().call() + 1
         except Exception:
             pass
-    return render_template("upload.html", next_id=next_id)
+    with SessionLocal() as db:
+        cases = db.scalars(
+            select(ForensicCase).order_by(ForensicCase.id.desc())
+        ).all()
+    return render_template("upload.html", next_id=next_id, cases=cases)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-#  EVIDENCE – List
+#  EVIDENCE LIST
 # ══════════════════════════════════════════════════════════════════════════════
 
 
@@ -296,7 +386,7 @@ def evidence_list():
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-#  EVIDENCE – Detail / Chain of Custody
+#  EVIDENCE DETAIL
 # ══════════════════════════════════════════════════════════════════════════════
 
 
@@ -305,6 +395,13 @@ def evidence_list():
 def evidence_detail(evidence_id):
     status = blockchain_status()
     ev_data, chain = None, []
+    offchain = None
+    integrity_score = None
+    validation_ok, validation_issues = True, []
+    suspicious_flags = []
+    locked_view = False
+    unlock_at = None
+
     if status["deployed"] and status["connected"]:
         try:
             raw = contract.functions.getEvidence(evidence_id).call()
@@ -323,18 +420,38 @@ def evidence_detail(evidence_id):
             }
             raw_chain = contract.functions.getCustodyChain(evidence_id).call()
             chain = [format_event(e) for e in raw_chain]
+            validation_ok, validation_issues = validate_custody_chain(chain)
+            with SessionLocal() as db:
+                integrity_score = compute_integrity_score(db, evidence_id, chain)
+            suspicious_flags = detect_suspicious_activity(evidence_id)
         except Exception as e:
             flash(f"Error: {e}", "danger")
+
+    with SessionLocal() as db:
+        offchain = db.get(OffChainEvidenceMeta, evidence_id)
+
+    locked, unlock_at = is_evidence_locked(evidence_id)
+    if locked and session.get("role") != "Admin":
+        locked_view = True
+
     return render_template(
         "evidence_detail.html",
         evidence=ev_data,
         chain=chain,
         action_names=ACTION_NAMES,
+        offchain=offchain,
+        integrity_score=integrity_score,
+        validation_ok=validation_ok,
+        validation_issues=validation_issues,
+        suspicious_flags=suspicious_flags,
+        locked_view=locked_view,
+        unlock_at=unlock_at,
+        users_for_transfer=[u for u in all_usernames() if u != session["user"]],
     )
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-#  LOG CUSTODY ACTION
+#  LOG ACTION
 # ══════════════════════════════════════════════════════════════════════════════
 
 
@@ -344,9 +461,20 @@ def log_action(evidence_id):
     action_name = request.form.get("action")
     notes = request.form.get("notes", "")
     actor = session["name"]
+    geo_lat = _parse_optional_float(request.form, "geo_lat")
+    geo_lng = _parse_optional_float(request.form, "geo_lng")
+
+    locked, _ = is_evidence_locked(evidence_id)
+    if locked and session.get("role") != "Admin":
+        flash("This evidence is time-locked. Only an Admin can act before unlock.", "danger")
+        return redirect(url_for("evidence_detail", evidence_id=evidence_id))
 
     if action_name not in ACTION_CODES:
         flash("Invalid action.", "danger")
+        return redirect(url_for("evidence_detail", evidence_id=evidence_id))
+
+    if not role_can_log_action(session.get("role"), action_name):
+        flash("Your role cannot perform this custody action.", "danger")
         return redirect(url_for("evidence_detail", evidence_id=evidence_id))
 
     try:
@@ -354,12 +482,31 @@ def log_action(evidence_id):
         acct = get_ganache_account()
         tx = contract.functions.logCustodyEvent(
             evidence_id,
-            ev[1],  # current stored hash
+            ev[1],
             ACTION_CODES[action_name],
             actor,
             notes,
         ).transact({"from": acct, "gas": 1_000_000})
         w3.eth.wait_for_transaction_receipt(tx)
+        sig = sign_action_hmac(
+            current_app.secret_key,
+            session["user"],
+            evidence_id,
+            action_name,
+            notes,
+        )
+        with SessionLocal() as db:
+            log_audit(
+                db,
+                username=session["user"],
+                action="chain_action",
+                detail=f"{action_name}: {notes}"[:2000],
+                evidence_id=evidence_id,
+                geo_lat=geo_lat,
+                geo_lng=geo_lng,
+                signature_hex=sig,
+            )
+            db.commit()
         flash(f"✅ Action '{action_name}' recorded on blockchain.", "success")
     except Exception as e:
         flash(f"Error: {e}", "danger")
@@ -368,7 +515,7 @@ def log_action(evidence_id):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-#  VERIFICATION
+#  VERIFY
 # ══════════════════════════════════════════════════════════════════════════════
 
 
@@ -379,6 +526,8 @@ def verify():
     if request.method == "POST":
         evidence_id = request.form.get("evidence_id", type=int)
         file = request.files.get("file")
+        geo_lat = _parse_optional_float(request.form, "geo_lat")
+        geo_lng = _parse_optional_float(request.form, "geo_lng")
 
         if not file or file.filename == "":
             flash("Please upload a file to verify.", "danger")
@@ -393,15 +542,38 @@ def verify():
             ).call()
             ev = contract.functions.getEvidence(evidence_id).call()
 
-            # Log verification event on chain
-            acct = get_ganache_account()
-            contract.functions.logCustodyEvent(
-                evidence_id,
-                new_hash,
-                ACTION_CODES["Verified"],
-                session["name"],
-                "Integrity verification performed",
-            ).transact({"from": acct, "gas": 1_000_000})
+            with SessionLocal() as db:
+                record_verification(
+                    db, evidence_id, authentic, session["user"]
+                )
+                log_audit(
+                    db,
+                    username=session["user"],
+                    action="verify_attempt",
+                    detail=f"authentic={authentic}",
+                    evidence_id=evidence_id,
+                    geo_lat=geo_lat,
+                    geo_lng=geo_lng,
+                )
+                if authentic:
+                    acct = get_ganache_account()
+                    vtx = contract.functions.logCustodyEvent(
+                        evidence_id,
+                        new_hash,
+                        ACTION_CODES["Verified"],
+                        session["name"],
+                        "Integrity verification performed — hash match",
+                    ).transact({"from": acct, "gas": 1_000_000})
+                    w3.eth.wait_for_transaction_receipt(vtx)
+                else:
+                    add_security_alert(
+                        db,
+                        level="danger",
+                        code="TAMPER_DETECTED",
+                        message=f"Hash mismatch for evidence #{evidence_id}. Possible tampering.",
+                        evidence_id=evidence_id,
+                    )
+                db.commit()
 
             result = {
                 "authentic": authentic,

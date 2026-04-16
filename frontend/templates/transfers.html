@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Transfers{% endblock %}
+{% block content %}
+<h2 class="fw-bold mb-4"><i class="fa-solid fa-right-left me-2 text-primary-custom"></i>Custody transfer requests</h2>
+<p class="text-muted">Two-step workflow: sender requests → recipient (or Admin) approves → event is written on-chain.</p>
+<div class="table-responsive card border-0 shadow-sm">
+  <table class="table table-hover mb-0">
+    <thead class="table-light">
+      <tr><th>ID</th><th>Evidence</th><th>From</th><th>To</th><th>Status</th><th>When</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for t in transfers %}
+      <tr>
+        <td>#{{ t.id }}</td>
+        <td><a href="{{ url_for('evidence_detail', evidence_id=t.evidence_id) }}">#{{ t.evidence_id }}</a></td>
+        <td>{{ t.from_username }}</td>
+        <td>{{ t.to_username }}</td>
+        <td>
+          {% if t.status == 'pending' %}<span class="badge bg-warning text-dark">Pending</span>
+          {% elif t.status == 'approved' %}<span class="badge bg-success">Approved</span>
+          {% else %}<span class="badge bg-secondary">Rejected</span>{% endif %}
+        </td>
+        <td class="small">{{ t.created_at.strftime('%Y-%m-%d %H:%M') if t.created_at else '' }}</td>
+        <td>
+          {% if t.status == 'pending' and (session.user == t.to_username or session.role == 'Admin') %}
+          <form method="POST" action="{{ url_for('features.transfer_approve', tid=t.id) }}" class="d-inline">
+            <button class="btn btn-sm btn-success" type="submit">Approve</button>
+          </form>
+          <form method="POST" action="{{ url_for('features.transfer_reject', tid=t.id) }}" class="d-inline">
+            <button class="btn btn-sm btn-outline-danger" type="submit">Reject</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="7" class="text-center text-muted py-4">No transfer requests.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

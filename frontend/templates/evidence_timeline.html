@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Timeline #{{ evidence_id }}{% endblock %}
+{% block content %}
+<div class="mb-3">
+  <a href="{{ url_for('evidence_detail', evidence_id=evidence_id) }}" class="btn btn-outline-secondary btn-sm"><i class="fa-solid fa-arrow-left"></i> Evidence</a>
+</div>
+<h2 class="fw-bold mb-4"><i class="fa-solid fa-chart-gantt me-2"></i>Evidence timeline visualization</h2>
+{% if evidence %}
+<p class="text-muted">#{{ evidence_id }} · {{ evidence.fileName }} · {{ evidence.uploadedBy }}</p>
+{% endif %}
+<div class="timeline">
+  {% for ev in chain %}
+  <div class="timeline-item">
+    <div class="timeline-dot bg-primary-custom"></div>
+    <div class="timeline-content card border-0 shadow-sm mb-3">
+      <div class="card-body">
+        <div class="d-flex justify-content-between">
+          <strong>{{ ev.action }}</strong>
+          <span class="text-muted small">{{ ev.datetime }}</span>
+        </div>
+        <div>{{ ev.actor }}</div>
+        {% if ev.notes %}<p class="small text-muted mb-0 mt-1">{{ ev.notes }}</p>{% endif %}
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <p class="text-muted">No chain data.</p>
+  {% endfor %}
+</div>
+{% endblock %}

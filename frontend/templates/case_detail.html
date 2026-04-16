@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}{{ case.case_number }}{% endblock %}
+{% block content %}
+<div class="mb-4">
+  <a href="{{ url_for('features.cases_list') }}" class="btn btn-outline-secondary btn-sm"><i class="fa-solid fa-arrow-left"></i></a>
+</div>
+<h2 class="fw-bold"><code>{{ case.case_number }}</code> — {{ case.title }}</h2>
+<p class="text-muted">{{ case.description or 'No description.' }}</p>
+<div class="d-flex gap-2 mb-4">
+  <a href="{{ url_for('features.case_report', case_id=case.id) }}" class="btn btn-outline-primary btn-sm" target="_blank">
+    <i class="fa-solid fa-file-lines me-1"></i>Printable report
+  </a>
+</div>
+
+{% if session.role in ['Admin', 'Investigator'] %}
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header fw-bold">Link evidence (blockchain ID)</div>
+  <div class="card-body">
+    <form method="POST" action="{{ url_for('features.case_link_evidence', case_id=case.id) }}" class="row g-2 align-items-end">
+      <div class="col-md-4">
+        <label class="form-label small">Evidence ID</label>
+        <input type="number" name="evidence_id" class="form-control" min="1" required/>
+      </div>
+      <div class="col-md-4">
+        <button type="submit" class="btn btn-primary">Link</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+<div class="card border-0 shadow-sm">
+  <div class="card-header fw-bold">Linked evidence</div>
+  <div class="table-responsive">
+    <table class="table mb-0">
+      <thead class="table-light"><tr><th>ID</th><th>File</th><th>Uploader</th><th>Hash (short)</th></tr></thead>
+      <tbody>
+        {% for row in ev_rows %}
+        <tr>
+          <td><a href="{{ url_for('evidence_detail', evidence_id=row.evidence_id) }}">#{{ row.evidence_id }}</a></td>
+          <td>{{ row.fileName }}</td>
+          <td>{{ row.uploadedBy }}</td>
+          <td class="small font-monospace">{{ row.fileHash[:24] if row.fileHash }}…</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4" class="text-muted text-center py-3">No evidence linked.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

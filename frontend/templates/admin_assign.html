@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Assign cases{% endblock %}
+
+{% block content %}
+<h2 class="fw-bold mb-4">Assign evidence to investigator or member</h2>
+<p class="text-muted">Admin assigns which blockchain evidence ID belongs to which user (Investigator or Member).</p>
+
+<form method="POST" class="row g-3 align-items-end mb-4">
+  <div class="col-md-4">
+    <label class="form-label">Evidence ID (on chain)</label>
+    <input type="number" name="evidence_id" class="form-control" min="1" required/>
+  </div>
+  <div class="col-md-4">
+    <label class="form-label">Assign to</label>
+    <select name="assignee_username" class="form-select" required>
+      {% for u, d in users.items() %}
+      {% if d.role in ('Investigator','Member') %}
+      <option value="{{ u }}">{{ u }} ({{ d.role }})</option>
+      {% endif %}
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-md-3">
+    <label class="form-label">Role</label>
+    <select name="assignee_role" class="form-select">
+      <option value="Investigator">Investigator</option>
+      <option value="Member">Member</option>
+    </select>
+  </div>
+  <div class="col-md-1 d-flex align-items-end">
+    <button type="submit" class="btn btn-primary">Assign</button>
+  </div>
+</form>
+
+<h3 class="mt-4">Current assignments</h3>
+<table class="table table-sm">
+  <thead>
+    <tr><th>Evidence ID</th><th>Assignee</th><th>Role</th><th>Assigned by</th></tr>
+  </thead>
+  <tbody>
+    {% for row in assignments %}
+    <tr>
+      <td>#{{ row.evidence_id }}</td>
+      <td>{{ row.assignee_username }}</td>
+      <td>{{ row.assignee_role }}</td>
+      <td>{{ row.assigner_username }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="4" class="text-muted">No assignments yet.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

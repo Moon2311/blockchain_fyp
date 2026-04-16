@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Case access requests{% endblock %}
+
+{% block content %}
+<h2 class="fw-bold mb-4">Member case access requests</h2>
+<p class="text-muted">Approve or reject requests from Members to view specific evidence.</p>
+
+<table class="table table-sm">
+  <thead>
+    <tr><th>ID</th><th>Evidence</th><th>Requester</th><th>Status</th><th></th></tr>
+  </thead>
+  <tbody>
+    {% for r in requests %}
+    <tr>
+      <td>{{ r.id }}</td>
+      <td>#{{ r.evidence_id }}</td>
+      <td>{{ r.requester_username }}</td>
+      <td><span class="badge bg-secondary">{{ r.status }}</span></td>
+      <td>
+        {% if r.status == 'pending' %}
+        <form method="POST" class="d-inline">
+          <input type="hidden" name="request_id" value="{{ r.id }}"/>
+          <button name="action" value="approve" class="btn btn-sm btn-success">Approve</button>
+        </form>
+        <form method="POST" class="d-inline">
+          <input type="hidden" name="request_id" value="{{ r.id }}"/>
+          <button name="action" value="reject" class="btn btn-sm btn-outline-danger">Reject</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="5" class="text-muted">No requests.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

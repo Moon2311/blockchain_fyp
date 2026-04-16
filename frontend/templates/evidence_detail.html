@@ -17,7 +17,62 @@
 
 {% if evidence %}
 
-<!-- ── Evidence Metadata ────────────────────────────────────────── -->
+{% if locked_view %}
+<div class="alert alert-warning d-flex align-items-center gap-2 mb-4">
+  <i class="fa-solid fa-clock fa-2x"></i>
+  <div>
+    <strong>Time-locked evidence.</strong> Full metadata is restricted until
+    {% if unlock_at %}{{ unlock_at.strftime('%Y-%m-%d %H:%M UTC') }}{% else %}unlock time{% endif %}.
+    Contact an Admin for emergency access.
+  </div>
+</div>
+{% endif %}
+
+<div class="row g-3 mb-4">
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body">
+        <h6 class="text-muted small text-uppercase">Integrity score</h6>
+        <p class="display-6 fw-bold mb-0 text-primary-custom">{{ integrity_score if integrity_score is not none else '—' }}{% if integrity_score is not none %}<span class="fs-6">/100</span>{% endif %}</p>
+        <p class="small text-muted mb-0">Based on verifications &amp; transfer count</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body">
+        <h6 class="text-muted small text-uppercase">Chain validation</h6>
+        {% if validation_ok %}
+        <p class="text-success fw-bold mb-0"><i class="fa-solid fa-check me-1"></i>OK</p>
+        {% else %}
+        <p class="text-warning fw-bold mb-1"><i class="fa-solid fa-triangle-exclamation me-1"></i>Review</p>
+        <ul class="small mb-0 ps-3">{% for i in validation_issues %}<li>{{ i }}</li>{% endfor %}</ul>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body">
+        <h6 class="text-muted small text-uppercase">Hybrid storage</h6>
+        {% if offchain %}
+        <p class="mb-1 small"><span class="badge bg-secondary">{{ offchain.storage_mode }}</span></p>
+        <p class="small mb-0 font-monospace text-truncate" title="{{ offchain.relative_filename }}">{{ offchain.relative_filename or '—' }}</p>
+        {% if offchain.ipfs_cid %}<p class="small mb-0">IPFS: <code>{{ offchain.ipfs_cid }}</code></p>{% endif %}
+        {% else %}
+        <p class="small text-muted mb-0">No off-chain row (legacy upload).</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if suspicious_flags %}
+<div class="alert alert-info py-2 mb-4"><strong>Suspicious activity hints:</strong>
+  <ul class="mb-0 mt-1">{% for f in suspicious_flags %}<li>{{ f }}</li>{% endfor %}</ul>
+</div>
+{% endif %}
+
 <div class="row g-4 mb-4">
   <div class="col-lg-6">
     <div class="card border-0 shadow-sm h-100">
@@ -54,24 +109,67 @@
         <i class="fa-solid fa-fingerprint me-2 text-success"></i>SHA-256 Hash (Blockchain Stored)
       </div>
       <div class="card-body d-flex flex-column justify-content-center">
-        <div class="hash-display p-3 rounded-3 bg-dark font-monospace text-success small mb-3"
+        <div class="hash-display p-3 rounded-3 bg-dark font-monospace text-success small mb-3 {% if locked_view %}opacity-25 user-select-none{% endif %}"
              style="word-break:break-all;">
+          {% if locked_view %}••••••••••••••••••••••• •••••• >           {% endif %}
           {{ evidence.fileHash }}
         </div>
         <p class="small text-muted mb-0">
-          <i class="fa-solid fa-circle-check text-success me-1"></i>
+          <i class••••••••••••••••• >          <i class="fa-solid fa-circle-check text-success me-1"></i>
           This hash is permanently stored on the Ethereum blockchain and cannot be altered.
-          Any modification to the original file will produce a different hash.
         </p>
       </div>
     </div>
   </div>
 </div>
 
-<!-- ── Log New Action ─────────────────────────────────────────────── -->
 <div class="card border-0 shadow-sm mb-4">
   <div class="card-header bg-transparent fw-bold border-0">
-    <i class="fa-solid fa-pen-to-square me-2 text-warning"></i>Log Custody Action
+    <i class•••••••••••••• >          <i class="fa-solid fa-right-left me-2"></i>Request custody transfer
+  </div>
+  <div class="card-body">
+    <form method="POST" action="{{ url_for('features.request_transfer', evidence_id=evidence.id) }}" class="row g-2">
+      <div class="col-md-5">
+        <label class="form-label small">Transfer to user</label>
+        <select name="to_username" class="form-select" required>
+          {% for u in users_for_transfer %}
+          <option value="{{ u }}">{{ u }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-5">
+        <label class="form-label small">Notes (optional)</label>
+        <input type="text" name="notes" class="form-control" placeholder="Reason / context"/>
+      </div>
+      <div class="col-md-2 d-flex align-items-end">
+        <button type="submit" class="btn btn-primary w-100">Request</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% if session.role == 'Admin' %}
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header bg-transparent fw-bold border-0">
+    <i class•••••••••••••••••••••••• >          <i class="fa-solid fa-lock me-2"></i>Time lock (Admin)
+  </div>
+  <div class="card-body">
+    <form method="POST" action="{{ url_for('features.set_evidence_time_lock', evidence_id=evidence.id) }}" class="row g-2">
+      <div class="col-md-8">
+        <label class="form-label small">Unlock at (UTC)</label>
+        <input type="datetime-local" name="unlock_at" class="form-control" required />
+      </div>
+      <div class="col-md-4 d-flex align-items-end">
+        <button type="submit" class="btn btn-outline-secondary w-100">Set lock</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header bg-transparent fw-bold border-0">
+    <i class•••••••••••••••••••••••••••••••••••••••••••••••••••••• >          <i class="fa-solid fa-pen-to-square me-2 text-warning"></i>Log Custody Action
   </div>
   <div class="card-body">
     <form method="POST" action="{{ url_for('log_action', evidence_id=evidence.id) }}"
@@ -86,31 +184,40 @@
           {% endfor %}
         </select>
       </div>
-      <div class="col-md-6">
+      <div class="col-md-5">
         <label class="form-label fw-semibold small">Notes</label>
         <input type="text" name="notes" class="form-control"
                placeholder="e.g. Transferred to lab for analysis…" required/>
       </div>
-      <div class="col-md-3">
-        <button type="submit" class="btn btn-warning w-100 fw-bold">
-          <i class="fa-solid fa-link me-2"></i>Record on Chain
+      <div class="col-md-2">
+        <label class="form-label fw-semibold small">Latitude</label>
+        <input type="text" name="geo_lat" class="form-control" placeholder="optional"/>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label fw-semibold small">Longitude</label>
+        <input type="text" name="geo_lng" class="form-control" placeholder="optional"/>
+      </div>
+      <div class="col-md-12 mt-2">
+        <button type="submit" class="btn btn-warning fw-bold">
+          <i class•••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••• >          <i class="fa-solid fa-link me-2"></i>Record on Chain
         </button>
       </div>
     </form>
   </div>
 </div>
 
-<!-- ── Verify shortcut ────────────────────────────────────────────── -->
 <div class="mb-4 text-end">
+  <a href="{{ url_for('features.evidence_timeline', evidence_id=evidence.id) }}" class="btn btn-outline-primary me-2">
+    <i class••••••••••••••••••••••••••••••••••••••••••••••••••••••••••• >          <i class••••••••••••••••••••••••••••• >          <i class="fa-solid fa-timeline me-2"></i>Full timeline view
+  </a>
   <a href="{{ url_for('verify') }}" class="btn btn-outline-success">
-    <i class="fa-solid fa-shield-check me-2"></i>Verify This Evidence Integrity
+    <i class••••••••••••••••••••••••••••••••••••••• >          <i class•••••••••••••••••••••••••••• >          <i class="fa-solid fa-shield-check me-2"></i>Verify This Evidence
   </a>
 </div>
 
-<!-- ── Chain of Custody Timeline ─────────────────────────────────── -->
 <div class="card border-0 shadow-sm">
   <div class="card-header bg-transparent fw-bold border-0 d-flex justify-content-between">
-    <span><i class="fa-solid fa-timeline me-2 text-primary-custom"></i>Chain of Custody Timeline</span>
+    <span><i class••••••••••••••••••••••••••••••••••••• •• >          <i class•••••••••••••• •• >          <i class="fa-solid fa-timeline me-2 text-primary-custom"></i>Chain of Custody Timeline</span>
     <span class="badge bg-primary-custom">{{ chain | length }} events</span>
   </div>
   <div class="card-body">

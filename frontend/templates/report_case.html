@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Case report — {{ case.case_number }}</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <style>
+    @media print { .no-print { display: none; } }
+    body { font-size: 11pt; }
+  </style>
+</head>
+<body class="p-4">
+<div class="no-print mb-3">
+  <button class="btn btn-primary" onclick="window.print()">Print / Save PDF</button>
+  <a href="{{ url_for('features.case_detail', case_id=case.id) }}" class="btn btn-outline-secondary">Back</a>
+</div>
+<h1 class="h4">Forensic case report</h1>
+<p><strong>Case:</strong> {{ case.case_number }} — {{ case.title }}</p>
+<p><strong>Description:</strong> {{ case.description or '—' }}</p>
+<p><strong>Generated:</strong> {{ generated_at }}</p>
+<hr/>
+<h2 class="h6">Linked evidence (blockchain)</h2>
+<table class="table table-sm table-bordered">
+  <thead><tr><th>Evidence ID</th><th>File</th><th>Uploader</th><th>Chain events</th></tr></thead>
+  <tbody>
+    {% for it in items %}
+    <tr>
+      <td>#{{ it.evidence_id }}</td>
+      <td>{{ it.meta.fileName if it.meta else '—' }}</td>
+      <td>{{ it.meta.uploadedBy if it.meta else '—' }}</td>
+      <td>{{ it.chain_len }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+<p class="small text-muted mt-4">Blockchain hashes are stored immutably on the local Ganache network. This report is for academic / demonstration purposes.</p>
+</body>
+</html>

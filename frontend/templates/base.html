@@ -36,10 +36,36 @@
             <i class="fa-solid fa-folder-open me-1"></i>Evidence
           </a>
         </li>
+        {% if session.role != 'Analyst' %}
         <li class="nav-item">
           <a class="nav-link {% if request.endpoint=='upload' %}active{% endif %}"
              href="{{ url_for('upload') }}">
             <i class="fa-solid fa-upload me-1"></i>Upload
+          </a>
+        </li>
+        {% endif %}
+        <li class="nav-item">
+          <a class="nav-link {% if request.endpoint and request.endpoint.startswith('features.cases') %}active{% endif %}"
+             href="{{ url_for('features.cases_list') }}">
+            <i class="fa-solid fa-briefcase me-1"></i>Cases
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link {% if request.endpoint == 'features.transfers_inbox' %}active{% endif %}"
+             href="{{ url_for('features.transfers_inbox') }}">
+            <i class="fa-solid fa-right-left me-1"></i>Transfers
+            {% if nav_pending_transfers and nav_pending_transfers > 0 %}
+            <span class="badge bg-warning text-dark">{{ nav_pending_transfers }}</span>
+            {% endif %}
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link {% if request.endpoint == 'features.alerts_list' %}active{% endif %}"
+             href="{{ url_for('features.alerts_list') }}">
+            <i class="fa-solid fa-bell me-1"></i>Alerts
+            {% if nav_alerts_unack and nav_alerts_unack > 0 %}
+            <span class="badge bg-danger">{{ nav_alerts_unack }}</span>
+            {% endif %}
           </a>
         </li>
         <li class="nav-item">
