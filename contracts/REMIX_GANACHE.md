@@ -32,25 +32,28 @@ The Flask backend uses the same URL unless you override **`GANACHE_URL`** in the
 
 The backend loads:
 
-| Artifact | Path |
-|----------|------|
-| ABI | `backend/contract_abi.json` |
-| Address | `backend/contract_address.txt` |
+| Artifact | Path (repo root–relative) |
+|----------|---------------------------|
+| Solidity | `contracts/ChainOfCustody.sol` |
+| ABI | `contracts/contract_abi.json` |
+| Address | `contracts/contract_address.txt` |
+| Address template | `contracts/contract_address.example.txt` |
 
 **ABI (from Remix)**
 
 - After compile, open the **Compilation Details** / ABI JSON for `ChainOfCustody`.
-- Save the **ABI array** as `backend/contract_abi.json` (valid JSON array).
+- Save the **ABI array** as `contracts/contract_abi.json` (valid JSON array).
 
 **Address**
 
-- Create (or overwrite) `backend/contract_address.txt` with **one line**: the contract address, e.g.  
+- Create (or overwrite) `contracts/contract_address.txt` with **one line**: the contract address, e.g.  
   `0x1234...abcd`  
+- You can start from `contracts/contract_address.example.txt`: copy to `contract_address.txt` and replace the placeholder line.
 - Optional: prefix lines with `#` for comments; the backend ignores `#` lines and blank lines.
 
 **Alternative — environment variable**
 
-- Set `CHAIN_CUSTODY_CONTRACT_ADDRESS=0x...` so the backend uses that address without editing the file (still need `contract_abi.json`).
+- Set `CHAIN_CUSTODY_CONTRACT_ADDRESS=0x...` so the backend uses that address without editing the file (still need `contracts/contract_abi.json`).
 
 ## 6. Verify in Remix / Ganache UI
 

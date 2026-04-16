@@ -17,9 +17,10 @@ from web3 import Web3
 
 # ── Configuration ──────────────────────────────────────────────────────────────
 GANACHE_URL = os.environ.get("GANACHE_URL", "http://127.0.0.1:7545")  # Ganache GUI default
-CONTRACT_FILE = os.path.join(os.path.dirname(__file__), "contracts", "ChainOfCustody.sol")
-ABI_OUTPUT    = os.path.join(os.path.dirname(__file__), "backend", "contract_abi.json")
-ADDRESS_FILE  = os.path.join(os.path.dirname(__file__), "backend", "contract_address.txt")
+_ROOT = os.path.dirname(os.path.abspath(__file__))
+CONTRACT_FILE = os.path.join(_ROOT, "contracts", "ChainOfCustody.sol")
+ABI_OUTPUT = os.path.join(_ROOT, "contracts", "contract_abi.json")
+ADDRESS_FILE = os.path.join(_ROOT, "contracts", "contract_address.txt")
 # ───────────────────────────────────────────────────────────────────────────────
 
 

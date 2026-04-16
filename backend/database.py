@@ -263,7 +263,7 @@ def _seed_help(session: Session) -> None:
             "blockchain",
             "Blockchain setup",
             "<p>Run Ganache on port 7545, deploy the contract with <code>deploy.py</code>, and ensure "
-            "<code>contract_abi.json</code> and <code>contract_address.txt</code> exist in the backend folder.</p>",
+            "<code>contracts/contract_abi.json</code> and <code>contracts/contract_address.txt</code> exist next to the Solidity file.</p>",
         ),
         (
             "api",

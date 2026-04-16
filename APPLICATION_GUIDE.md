@@ -36,7 +36,7 @@ flowchart LR
 - **Python 3.10+** with `pip`
 - **Node.js 18+** and `npm` (for the React app)
 - **Ganache** on port **7545** (for blockchain features)
-- Contract deployed (`deploy.py`) so `contract_abi.json` and `contract_address.txt` exist under `backend/`
+- Contract deployed (`deploy.py`) so `contracts/contract_abi.json` and `contracts/contract_address.txt` exist next to `ChainOfCustody.sol`
 
 ---
 

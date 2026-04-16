@@ -7,9 +7,12 @@ import time
 from web3 import Web3
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+ROOT_DIR = os.path.dirname(BASE_DIR)
+# Same folder as ChainOfCustody.sol — deploy.py writes ABI + address here
+CONTRACTS_DIR = os.path.join(ROOT_DIR, "contracts")
 GANACHE_URL = os.environ.get("GANACHE_URL", "http://127.0.0.1:7545")
-ABI_FILE = os.path.join(BASE_DIR, "contract_abi.json")
-ADDRESS_FILE = os.path.join(BASE_DIR, "contract_address.txt")
+ABI_FILE = os.path.join(CONTRACTS_DIR, "contract_abi.json")
+ADDRESS_FILE = os.path.join(CONTRACTS_DIR, "contract_address.txt")
 # Optional: set after Remix deploy without editing files (same value as contract_address.txt)
 _ENV_CONTRACT = os.environ.get("CHAIN_CUSTODY_CONTRACT_ADDRESS", "").strip()
 

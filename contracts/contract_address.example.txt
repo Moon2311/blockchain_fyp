@@ -1,0 +1,11 @@
+# All chain artifacts live in this folder next to ChainOfCustody.sol:
+#   contracts/ChainOfCustody.sol          — source (compile in Remix or deploy.py)
+#   contracts/contract_abi.json           — ABI (from deploy.py or Remix)
+#   contracts/contract_address.txt        — one line, your deployed 0x address (CREATE THIS FILE)
+#
+# Setup: copy this file to contract_address.txt and replace the line below with your address only:
+#   cp contract_address.example.txt contract_address.txt
+#   # then edit contract_address.txt — first non-comment line must be the 0x address
+#
+# Example format (replace with your real Ganache / Remix deployment address):
+0x2ffBD4a25A3ddf2a0B71Ed140100132643933e2b
