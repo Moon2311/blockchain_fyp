@@ -1,4 +1,1 @@
-# Replace this file with contract_address.txt containing a single line, e.g.:
-# 0xYourRemixOrDeploypyContractAddressHere
-#
-# Or set environment variable CHAIN_CUSTODY_CONTRACT_ADDRESS to the same 0x value.
+0x2ffBD4a25A3ddf2a0B71Ed140100132643933e2b
