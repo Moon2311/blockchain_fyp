@@ -3,11 +3,11 @@
 
 {% block content %}
 <h2 class="fw-bold mb-4">Users &amp; roles</h2>
-<p class="text-muted">Demo accounts (edit <code>users_config.py</code> in production).</p>
+<p class="text-muted">Users are stored in SQLite (<code>users</code> table) with hashed passwords.</p>
 
 <table class="table table-sm">
   <thead>
-    <tr><th>Username</th><th>Name</th><th>Role</th></tr>
+    <tr><th>Email</th><th>Name</th><th>Role</th></tr>
   </thead>
   <tbody>
     {% for u, d in users.items() %}
@@ -23,7 +23,7 @@
 <h3 class="mt-4">Add user</h3>
 <form method="POST" class="row g-2">
   <div class="col-md-3">
-    <input name="username" class="form-control" placeholder="username" required/>
+    <input type="email" name="email" class="form-control" placeholder="email" required/>
   </div>
   <div class="col-md-3">
     <input type="password" name="password" class="form-control" placeholder="password" required/>

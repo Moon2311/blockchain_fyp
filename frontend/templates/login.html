@@ -33,11 +33,11 @@
     <!-- Form -->
     <form method="POST">
       <div class="mb-3">
-        <label class="form-label fw-semibold">Username</label>
+        <label class="form-label fw-semibold">Email</label>
         <div class="input-group">
-          <span class="input-group-text"><i class="fa-solid fa-user"></i></span>
-          <input type="text" name="username" class="form-control"
-                 placeholder="admin / investigator / analyst" required autofocus/>
+          <span class="input-group-text"><i class="fa-solid fa-envelope"></i></span>
+          <input type="email" name="email" class="form-control"
+                 placeholder="your@email.com" required autofocus autocomplete="username"/>
         </div>
       </div>
       <div class="mb-4">
@@ -45,7 +45,7 @@
         <div class="input-group">
           <span class="input-group-text"><i class="fa-solid fa-lock"></i></span>
           <input type="password" name="password" class="form-control"
-                 placeholder="Enter password" required/>
+                 placeholder="Enter password" required autocomplete="current-password"/>
         </div>
       </div>
       <button type="submit" class="btn btn-primary-custom w-100 fw-bold">
@@ -53,15 +53,9 @@
       </button>
     </form>
 
-    <!-- Demo credentials -->
-    <div class="mt-4 p-3 bg-light rounded-3">
-      <p class="small fw-semibold mb-2 text-muted">Demo Credentials:</p>
-      <table class="table table-sm table-borderless mb-0 small">
-        <tr><td><code>admin</code></td><td><code>admin123</code></td><td class="text-muted">Admin</td></tr>
-        <tr><td><code>investigator</code></td><td><code>inv123</code></td><td class="text-muted">Investigator</td></tr>
-        <tr><td><code>analyst</code></td><td><code>analyst123</code></td><td class="text-muted">Analyst</td></tr>
-      </table>
-    </div>
+    <p class="text-center small mt-3 mb-0">
+      <a href="{{ url_for('register') }}">Create an account</a>
+    </p>
 
     <p class="text-center text-muted small mt-3">
       FYP – M. Talha &nbsp;|&nbsp; fa-2022/BS/DFCS/075

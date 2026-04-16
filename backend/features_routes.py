@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from flask import Blueprint, flash, redirect, render_template, request, session, url_for
 from sqlalchemy import func, select
 
-from auth import login_required, role_required
+from auth import can_access_evidence, login_required, role_required
 from blockchain_utils import (
     ACTION_CODES,
     blockchain_status,
@@ -26,7 +26,7 @@ from database import (
     TransferRequest,
     utcnow,
 )
-from users_config import USERS, all_usernames
+from users_config import all_usernames, users_dict
 
 features_bp = Blueprint("features", __name__)
 
@@ -200,7 +200,7 @@ def transfers_inbox():
                 )
                 .order_by(TransferRequest.created_at.desc())
             ).all()
-    return render_template("transfers.html", transfers=rows, users_map=USERS)
+    return render_template("transfers.html", transfers=rows, users_map=users_dict())
 
 
 @features_bp.route("/transfers/<int:tid>/approve", methods=["POST"])
@@ -279,9 +279,12 @@ def transfer_reject(tid):
 @features_bp.route("/evidence/<int:evidence_id>/transfer-request", methods=["POST"])
 @login_required
 def request_transfer(evidence_id):
-    to_u = request.form.get("to_username", "").strip()
+    if not can_access_evidence(session["user"], evidence_id):
+        flash("You do not have access to this evidence.", "danger")
+        return redirect(url_for("evidence_list"))
+    to_u = request.form.get("to_username", "").strip().lower()
     notes = request.form.get("notes", "").strip() or None
-    if to_u not in USERS:
+    if to_u not in users_dict():
         flash("Invalid recipient user.", "danger")
         return redirect(url_for("evidence_detail", evidence_id=evidence_id))
     if to_u == session["user"]:
@@ -369,6 +372,9 @@ def alert_ack(aid):
 @features_bp.route("/evidence/<int:evidence_id>/timeline")
 @login_required
 def evidence_timeline(evidence_id):
+    if not can_access_evidence(session["user"], evidence_id):
+        flash("You do not have access to this evidence.", "danger")
+        return redirect(url_for("evidence_list"))
     status = blockchain_status()
     chain = []
     ev_data = None

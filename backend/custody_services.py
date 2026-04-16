@@ -21,8 +21,8 @@ from database import (
 # Role-based action permissions for on-chain custody actions (by display name)
 ACTION_ROLE_MATRIX: dict[str, tuple[str, ...]] = {
     "Transferred": ("Admin", "Investigator"),
-    "Analyzed": ("Admin", "Investigator", "Analyst"),
-    "Verified": ("Admin", "Investigator", "Analyst"),
+    "Analyzed": ("Admin", "Investigator"),
+    "Verified": ("Admin", "Investigator"),
     "Archived": ("Admin", "Investigator"),
 }
 

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+import secrets
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -18,6 +20,7 @@ from sqlalchemy import (
     func,
     select,
 )
+from werkzeug.security import generate_password_hash
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship, sessionmaker
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -47,6 +50,22 @@ def utcnow() -> datetime:
 
 class Base(DeclarativeBase):
     pass
+
+
+class User(Base):
+    """Application user — email login, hashed password."""
+
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    email: Mapped[str] = mapped_column(String(256), unique=True, nullable=False, index=True)
+    password_hash: Mapped[str] = mapped_column(String(256), nullable=False)
+    name: Mapped[str] = mapped_column(String(256), nullable=False)
+    role: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, index=True
+    )
 
 
 class HelpTopic(Base):
@@ -116,15 +135,15 @@ class CaseAccessRequest(Base):
     __tablename__ = "case_access_requests"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    evidence_id: Mapped[int] mapped_column(Integer, nullable=False, index=True)
-    requester_username: Mapped[str] mapped_column(String(128), nullable=False, index=True)
-    status: Mapped[str] mapped_column(String(32), default="pending", index=True)
-    notes: Mapped[str | None] mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] mapped_column(
+    evidence_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    requester_username: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(32), default="pending", index=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow
     )
-    decided_at: Mapped[datetime | None] mapped_column(DateTime(timezone=True), nullable=True)
-    decided_by: Mapped[str | None] mapped_column(String(128), nullable=True)
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    decided_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
 
 
 class OffChainEvidenceMeta(Base):
@@ -257,10 +276,44 @@ def _seed_help(session: Session) -> None:
         session.add(HelpTopic(slug=slug, title=title, body=body))
 
 
+def _seed_admin_if_needed(session: Session) -> None:
+    """Create default Admin user if database has no users."""
+    email = (os.environ.get("ADMIN_EMAIL") or "admin@local").strip()
+    if session.scalar(select(User.id).where(User.email == email).limit(1)):
+        return
+    n = session.scalar(select(func.count()).select_from(User))
+    if n and n > 0:
+        return
+    password = (os.environ.get("ADMIN_PASSWORD") or "").strip()
+    if not password:
+        password = secrets.token_urlsafe(14)
+    pw_hash = generate_password_hash(password)
+    admin = User(
+        email=email,
+        password_hash=pw_hash,
+        name="System Administrator",
+        role="Admin",
+        is_active=True,
+    )
+    session.add(admin)
+    session.flush()
+    banner = (
+        f"\n{'=' * 60}\n"
+        "DEFAULT ADMIN CREATED (first run)\n"
+        f"  Email:    {email}\n"
+        f"  Password: {password}\n"
+        "  Role:     Admin\n"
+        "  Change password after first login.\n"
+        f"{'=' * 60}\n"
+    )
+    print(banner)
+
+
 def init_db() -> None:
     Base.metadata.create_all(bind=engine)
     with SessionLocal() as session:
         n = session.scalar(select(func.count()).select_from(HelpTopic))
         if n == 0:
             _seed_help(session)
-            session.commit()
+        _seed_admin_if_needed(session)
+        session.commit()

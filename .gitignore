@@ -34,3 +34,10 @@ pip-delete-this-directory.txt
 # OS files
 .DS_Store
 Thumbs.db
+
+# React (Vite) frontend
+web/node_modules/
+web/dist/
+
+# Legacy Jinja/static (optional local artifacts)
+uploads/

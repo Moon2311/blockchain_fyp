@@ -36,7 +36,7 @@
             <i class="fa-solid fa-folder-open me-1"></i>Evidence
           </a>
         </li>
-        {% if session.role != 'Analyst' %}
+        {% if session.role in ('Admin', 'Investigator') %}
         <li class="nav-item">
           <a class="nav-link {% if request.endpoint=='upload' %}active{% endif %}"
              href="{{ url_for('upload') }}">
@@ -80,6 +80,14 @@
             <i class="fa-solid fa-circle-question me-1"></i>Help
           </a>
         </li>
+        {% if session.role == 'Admin' %}
+        <li class="nav-item">
+          <a class="nav-link {% if request.endpoint and request.endpoint.startswith('admin.') %}active{% endif %}"
+             href="{{ url_for('admin.admin_home') }}">
+            <i class="fa-solid fa-user-shield me-1"></i>Admin
+          </a>
+        </li>
+        {% endif %}
       </ul>
       <ul class="navbar-nav ms-auto align-items-center gap-2">
         <li class="nav-item">

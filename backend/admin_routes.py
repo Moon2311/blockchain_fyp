@@ -1,19 +1,13 @@
 """Admin-only routes: user management, case assignment, case access requests."""
 
-from __ __future__ import annotations
+from __future__ import annotations
 
 from flask import Blueprint, flash, redirect, render_template, request, session, url_for
-from sqlalchemy import func, select
+from sqlalchemy import select
 
-from auth import admin_required
-from database import (
-    CaseAccessRequest,
-    CaseAssignment,
-    ForensicCase,
-    SessionLocal,
-    utcnow,
-)
-from users_config import USERS
+from auth import admin_required, register_user
+from database import CaseAccessRequest, CaseAssignment, ForensicCase, SessionLocal, User, utcnow
+from users_config import users_dict
 
 admin_bp = Blueprint("admin", __name__)
 
@@ -21,30 +15,30 @@ admin_bp = Blueprint("admin", __name__)
 @admin_bp.route("/admin")
 @admin_required
 def admin_home():
-    return render_template("admin_home.html", users=USERS)
+    return render_template("admin_home.html", users=users_dict())
 
 
 @admin_bp.route("/admin/users", methods=["GET", "POST"])
 @admin_required
 def admin_users():
     if request.method == "POST":
-        username = request.form.get("username", "").strip()
+        email = request.form.get("email", "").strip().lower()
         password = request.form.get("password", "").strip()
         name = request.form.get("name", "").strip()
         role = request.form.get("role", "Member")
-        if username and password and name and role in ("Admin", "Investigator", "Member"):
-            if username in USERS:
-                flash("User already exists.", "warning")
-            else:
-                USERS[username] = {
-                    "password": password,
-                    "role": role,
-                    "name": name,
-                }
-                flash(f"User {username} added with role {role}.", "success")
+        if not email or not password or not name:
+            flash("Email, password, and name are required.", "danger")
+        elif role not in ("Admin", "Investigator", "Member"):
+            flash("Invalid role.", "danger")
+        elif len(password) < 8:
+            flash("Password must be at least 8 characters.", "danger")
         else:
-            flash("All fields required.", "danger")
-    return render_template("admin_users.html", users=USERS)
+            try:
+                register_user(email, password, name, role)
+                flash(f"User {email} added with role {role}.", "success")
+            except ValueError as e:
+                flash(str(e), "warning")
+    return render_template("admin_users.html", users=users_dict())
 
 
 @admin_bp.route("/admin/cases/assign", methods=["GET", "POST"])
@@ -52,12 +46,18 @@ def admin_users():
 def admin_assign_cases():
     with SessionLocal() as db:
         cases = db.scalars(select(ForensicCase).order_by(ForensicCase.id.desc())).all()
-        users = [u for u, d in USERS.items() if d.get("role") in ("Investigator", "Member")]
+        user_rows = db.scalars(
+            select(User).where(User.role.in_(("Investigator", "Member")))
+        ).all()
+        assignable_emails = [u.email for u in user_rows]
+        assignments = db.scalars(
+            select(CaseAssignment).order_by(CaseAssignment.created_at.desc())
+        ).all()
     if request.method == "POST":
         evidence_id = request.form.get("evidence_id", type=int)
-        assignee = request.form.get("assignee_username", "").strip()
+        assignee = request.form.get("assignee_username", "").strip().lower()
         role = request.form.get("assignee_role", "Investigator")
-        if evidence_id and assignee and assignee in USERS:
+        if evidence_id and assignee and assignee in assignable_emails:
             with SessionLocal() as db:
                 db.merge(
                     CaseAssignment(
@@ -69,17 +69,20 @@ def admin_assign_cases():
                 )
                 db.commit()
             flash("Assignment saved.", "success")
+        else:
+            flash("Evidence ID and valid assignee email are required.", "danger")
         return redirect(url_for("admin.admin_assign_cases"))
-    return render_template("admin_assign.html", cases=cases, users=users)
+    return render_template(
+        "admin_assign.html",
+        cases=cases,
+        users=users_dict(),
+        assignments=assignments,
+    )
 
 
-@admin_bp.route("/admin/requests")
+@admin_bp.route("/admin/requests", methods=["GET", "POST"])
 @admin_required
 def admin_case_requests():
-    with SessionLocal() as db:
-        reqs = db.scalars(
-            select(CaseAccessRequest).order_by(CaseAccessRequest.created_at.desc())
-        ).all()
     if request.method == "POST":
         req_id = request.form.get("request_id", type=int)
         action = request.form.get("action")
@@ -91,8 +94,12 @@ def admin_case_requests():
                 r.decided_at = utcnow()
             elif r and action == "reject":
                 r.status = "rejected"
-                r.decided_by = session[" User"]
+                r.decided_by = session["user"]
                 r.decided_at = utcnow()
             db.commit()
         return redirect(url_for("admin.admin_case_requests"))
+    with SessionLocal() as db:
+        reqs = db.scalars(
+            select(CaseAccessRequest).order_by(CaseAccessRequest.created_at.desc())
+        ).all()
     return render_template("admin_requests.html", requests=reqs)
