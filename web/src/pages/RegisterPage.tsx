@@ -7,7 +7,7 @@ export function RegisterPage() {
   const nav = useNavigate();
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
-  const [role, setRole] = useState("Member");
+  const [role, setRole] = useState("Viewer");
   const [password, setPassword] = useState("");
   const [password2, setPassword2] = useState("");
   const [err, setErr] = useState<string | null>(null);
@@ -54,7 +54,7 @@ export function RegisterPage() {
       >
         <h1 style={{ marginBottom: "0.35rem" }}>Create account</h1>
         <p className="muted" style={{ marginBottom: "1.25rem" }}>
-          Investigator or Member (Admin is created on first backend start)
+          Investigator or Viewer (Admin is created on first backend start)
         </p>
         {err && (
           <p style={{ color: "var(--color-danger)", fontSize: "0.9rem" }}>{err}</p>
@@ -84,7 +84,8 @@ export function RegisterPage() {
               style={inputStyle}
             >
               <option value="Investigator">Investigator (Analyst)</option>
-              <option value="Member">Member</option>
+              <option value="Viewer">Viewer (read-only)</option>
+              <option value="Member">Member (legacy)</option>
             </select>
           </Field>
           <Field label="Password">

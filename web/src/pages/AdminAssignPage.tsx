@@ -70,7 +70,8 @@ export function AdminAssignPage() {
             style={{ padding: "0.45rem" }}
           >
             <option value="Investigator">Investigator</option>
-            <option value="Member">Member</option>
+            <option value="Viewer">Viewer</option>
+            <option value="Member">Member (legacy)</option>
           </select>
           <Button type="submit">Save</Button>
         </form>

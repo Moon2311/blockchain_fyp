@@ -10,7 +10,7 @@ export function AdminUsersPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
-  const [role, setRole] = useState("Member");
+  const [role, setRole] = useState("Viewer");
 
   const load = () =>
     apiGet<{ users: Record<string, { name: string; role: string }> }>(
@@ -87,7 +87,8 @@ export function AdminUsersPage() {
             onChange={(e) => setRole(e.target.value)}
             style={{ padding: "0.45rem", maxWidth: 200 }}
           >
-            <option value="Member">Member</option>
+            <option value="Viewer">Viewer</option>
+            <option value="Member">Member (legacy)</option>
             <option value="Investigator">Investigator</option>
             <option value="Admin">Admin</option>
           </select>

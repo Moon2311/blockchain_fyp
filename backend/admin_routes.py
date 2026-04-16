@@ -25,10 +25,10 @@ def admin_users():
         email = request.form.get("email", "").strip().lower()
         password = request.form.get("password", "").strip()
         name = request.form.get("name", "").strip()
-        role = request.form.get("role", "Member")
+        role = request.form.get("role", "Viewer")
         if not email or not password or not name:
             flash("Email, password, and name are required.", "danger")
-        elif role not in ("Admin", "Investigator", "Member"):
+        elif role not in ("Admin", "Investigator", "Member", "Viewer"):
             flash("Invalid role.", "danger")
         elif len(password) < 8:
             flash("Password must be at least 8 characters.", "danger")
@@ -47,7 +47,7 @@ def admin_assign_cases():
     with SessionLocal() as db:
         cases = db.scalars(select(ForensicCase).order_by(ForensicCase.id.desc())).all()
         user_rows = db.scalars(
-            select(User).where(User.role.in_(("Investigator", "Member")))
+            select(User).where(User.role.in_(("Investigator", "Member", "Viewer")))
         ).all()
         assignable_emails = [u.email for u in user_rows]
         assignments = db.scalars(
@@ -57,7 +57,9 @@ def admin_assign_cases():
         evidence_id = request.form.get("evidence_id", type=int)
         assignee = request.form.get("assignee_username", "").strip().lower()
         role = request.form.get("assignee_role", "Investigator")
-        if evidence_id and assignee and assignee in assignable_emails:
+        if role not in ("Investigator", "Member", "Viewer"):
+            flash("Invalid assignee role.", "danger")
+        elif evidence_id and assignee and assignee in assignable_emails:
             with SessionLocal() as db:
                 db.merge(
                     CaseAssignment(

@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
+import { Navigate } from "react-router-dom";
 import { Card } from "../components/ui/Card";
 import { Button } from "../components/ui/Button";
+import { useAuth } from "../hooks/useAuth";
 import { apiGet, apiPostForm } from "../services/api";
 
 export function VerifyPage() {
+  const { user } = useAuth();
   const [count, setCount] = useState(0);
   const [evidenceId, setEvidenceId] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -14,6 +17,14 @@ export function VerifyPage() {
       .then((r) => setCount(r.evidence_count))
       .catch(() => {});
   }, []);
+
+  if (
+    user &&
+    user.role !== "Admin" &&
+    user.role !== "Investigator"
+  ) {
+    return <Navigate to="/dashboard" replace />;
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();

@@ -33,7 +33,7 @@ export function EvidenceTimelinePage() {
           {data.chain.map((c, i) => (
             <li key={i}>
               {String(c.datetime)} — <strong>{String(c.action)}</strong> —{" "}
-              {String(c.actor)}
+              {String(c.actor_label || c.actor)}
             </li>
           ))}
         </ol>

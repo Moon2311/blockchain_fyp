@@ -18,7 +18,7 @@
         <i class="fa-solid fa-user-plus fa-2x text-primary-custom"></i>
       </div>
       <h3 class="fw-bold">Create account</h3>
-      <p class="text-muted small">Investigator or Member — Admin is created on first server start</p>
+      <p class="text-muted small">Investigator or Viewer — Admin is created on first server start</p>
     </div>
 
     {% for cat, msg in get_flashed_messages(with_categories=true) %}
@@ -47,7 +47,8 @@
         <label class="form-label fw-semibold">Role</label>
         <select name="role" class="form-select" required>
           <option value="Investigator">Investigator (Analyst)</option>
-          <option value="Member">Member</option>
+          <option value="Viewer">Viewer (read-only)</option>
+          <option value="Member">Member (legacy)</option>
         </select>
       </div>
       <div class="mb-3">

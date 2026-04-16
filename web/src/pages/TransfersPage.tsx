@@ -69,6 +69,7 @@ export function TransfersPage() {
                 <td>{t.status}</td>
                 <td>
                   {t.status === "pending" &&
+                    (user?.role === "Admin" || user?.role === "Investigator") &&
                     (user?.email === t.to_username || user?.role === "Admin") && (
                       <span className="row">
                         <Button variant="primary" onClick={() => approve(t.id)}>

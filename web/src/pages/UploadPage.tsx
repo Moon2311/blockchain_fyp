@@ -1,13 +1,15 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { Card } from "../components/ui/Card";
 import { Button } from "../components/ui/Button";
+import { useAuth } from "../hooks/useAuth";
 import { apiGet, apiPostForm } from "../services/api";
 
 type CaseRow = { id: number; case_number: string; title: string };
 
 export function UploadPage() {
   const nav = useNavigate();
+  const { user } = useAuth();
   const [opts, setOpts] = useState<{
     next_id: number;
     cases: CaseRow[];
@@ -25,6 +27,14 @@ export function UploadPage() {
       .then(setOpts)
       .catch((e) => setErr(String(e)));
   }, []);
+
+  if (
+    user &&
+    user.role !== "Admin" &&
+    user.role !== "Investigator"
+  ) {
+    return <Navigate to="/dashboard" replace />;
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();

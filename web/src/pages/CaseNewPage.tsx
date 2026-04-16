@@ -1,13 +1,23 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { Card } from "../components/ui/Card";
 import { Button } from "../components/ui/Button";
+import { useAuth } from "../hooks/useAuth";
 import { apiPostJson } from "../services/api";
 
 export function CaseNewPage() {
   const nav = useNavigate();
+  const { user } = useAuth();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+
+  if (
+    user &&
+    user.role !== "Admin" &&
+    user.role !== "Investigator"
+  ) {
+    return <Navigate to="/cases" replace />;
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();

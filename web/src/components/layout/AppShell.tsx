@@ -72,9 +72,11 @@ export function AppShell() {
           <NavLink to="/alerts" style={navLinkStyle}>
             Alerts
           </NavLink>
-          <NavLink to="/verify" style={navLinkStyle}>
-            Verify
-          </NavLink>
+          {(role === "Admin" || role === "Investigator") && (
+            <NavLink to="/verify" style={navLinkStyle}>
+              Verify
+            </NavLink>
+          )}
           <NavLink to="/help" style={navLinkStyle}>
             Help
           </NavLink>

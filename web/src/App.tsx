@@ -3,6 +3,7 @@ import { AdminRoute } from "./components/auth/AdminRoute";
 import { AppShell } from "./components/layout/AppShell";
 import { useAuth } from "./hooks/useAuth";
 import { AdminAssignPage } from "./pages/AdminAssignPage";
+import { AdminAuditPage } from "./pages/AdminAuditPage";
 import { AdminHomePage } from "./pages/AdminHomePage";
 import { AdminRequestsPage } from "./pages/AdminRequestsPage";
 import { AdminUsersPage } from "./pages/AdminUsersPage";
@@ -83,6 +84,7 @@ export default function App() {
           <Route path="users" element={<AdminUsersPage />} />
           <Route path="assign" element={<AdminAssignPage />} />
           <Route path="requests" element={<AdminRequestsPage />} />
+          <Route path="audit" element={<AdminAuditPage />} />
         </Route>
       </Route>
 

@@ -75,6 +75,7 @@ export function EvidenceDetailPage() {
   const ev = data.evidence as Record<string, unknown> | null;
   const chain = (data.chain as Array<Record<string, unknown>>) || [];
   const locked = Boolean(data.locked_view);
+  const canManage = Boolean(data.can_manage_custody);
 
   return (
     <div className="stack" style={{ paddingTop: "1rem" }}>
@@ -103,7 +104,9 @@ export function EvidenceDetailPage() {
             <dt className="muted" style={{ margin: 0 }}>
               Uploaded by
             </dt>
-            <dd style={{ margin: 0 }}>{String(ev.uploadedBy)}</dd>
+            <dd style={{ margin: 0 }}>
+              {String(ev.uploadedByLabel || ev.uploadedBy || "")}
+            </dd>
           </dl>
         </Card>
       )}
@@ -111,14 +114,15 @@ export function EvidenceDetailPage() {
         <ol style={{ margin: 0, paddingLeft: "1.2rem" }}>
           {chain.map((c, i) => (
             <li key={i} style={{ marginBottom: "0.35rem" }}>
-              <strong>{String(c.action)}</strong> by {String(c.actor)} —{" "}
+              <strong>{String(c.action)}</strong> by{" "}
+              {String(c.actor_label || c.actor)} —{" "}
               {String(c.datetime)}
             </li>
           ))}
           {!chain.length && <li className="muted">No events</li>}
         </ol>
       </Card>
-      {ev && !locked && (
+      {ev && !locked && canManage && (
         <>
           <Card title="Log custody action">
             <form onSubmit={submitAction} className="stack">

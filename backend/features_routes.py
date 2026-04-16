@@ -7,7 +7,12 @@ from datetime import datetime, timezone
 from flask import Blueprint, flash, redirect, render_template, request, session, url_for
 from sqlalchemy import func, select
 
-from auth import can_access_evidence, login_required, role_required
+from auth import (
+    can_access_evidence,
+    can_mutate_chain_custody,
+    login_required,
+    role_required,
+)
 from blockchain_utils import (
     ACTION_CODES,
     blockchain_status,
@@ -206,6 +211,9 @@ def transfers_inbox():
 @features_bp.route("/transfers/<int:tid>/approve", methods=["POST"])
 @login_required
 def transfer_approve(tid):
+    if not can_mutate_chain_custody(session.get("role")):
+        flash("Only Admin or Investigator may approve custody transfers.", "danger")
+        return redirect(url_for("features.transfers_inbox"))
     with SessionLocal() as db:
         tr = db.get(TransferRequest, tid)
         if tr is None or tr.status != "pending":
@@ -228,7 +236,7 @@ def transfer_approve(tid):
                 tr.evidence_id,
                 ev[1],
                 ACTION_CODES["Transferred"],
-                session["name"],
+                str(session.get("user_id", "")),
                 notes,
             ).transact({"from": acct, "gas": 1_500_000})
             w3.eth.wait_for_transaction_receipt(tx)
@@ -253,6 +261,9 @@ def transfer_approve(tid):
 @features_bp.route("/transfers/<int:tid>/reject", methods=["POST"])
 @login_required
 def transfer_reject(tid):
+    if not can_mutate_chain_custody(session.get("role")):
+        flash("Only Admin or Investigator may reject custody transfers.", "danger")
+        return redirect(url_for("features.transfers_inbox"))
     with SessionLocal() as db:
         tr = db.get(TransferRequest, tid)
         if tr is None or tr.status != "pending":
@@ -278,6 +289,7 @@ def transfer_reject(tid):
 
 @features_bp.route("/evidence/<int:evidence_id>/transfer-request", methods=["POST"])
 @login_required
+@role_required("Admin", "Investigator")
 def request_transfer(evidence_id):
     if not can_access_evidence(session["user"], evidence_id):
         flash("You do not have access to this evidence.", "danger")

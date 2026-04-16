@@ -15,6 +15,9 @@ export function AdminHomePage() {
         <Card title="Requests">
           <Link to="/admin/requests">Case access requests →</Link>
         </Card>
+        <Card title="Audit trail">
+          <Link to="/admin/audit">View uploads, verifications & activity →</Link>
+        </Card>
       </div>
     </div>
   );

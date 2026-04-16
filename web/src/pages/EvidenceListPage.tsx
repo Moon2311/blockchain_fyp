@@ -78,7 +78,7 @@ export function EvidenceListPage() {
         </div>
         {!data.items.length && (
           <p className="muted" style={{ margin: 0 }}>
-            No evidence visible (assignments apply for Investigator/Member).
+            No evidence visible (assignments apply for Investigator/Viewer/Member).
           </p>
         )}
       </Card>

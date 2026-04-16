@@ -14,6 +14,7 @@ from werkzeug.utils import secure_filename
 from auth import (
     admin_required,
     can_access_evidence,
+    can_mutate_chain_custody,
     login_required,
     login_user,
     register_user,
@@ -41,6 +42,7 @@ from custody_services import (
     validate_custody_chain,
 )
 from database import (
+    AuditLogEntry,
     CaseAccessRequest,
     CaseAssignment,
     CaseEvidenceLink,
@@ -52,6 +54,7 @@ from database import (
     SessionLocal,
     TransferRequest,
     User,
+    VerificationRecord,
     utcnow,
 )
 from media_config import ALLOWED_EXTENSIONS, allowed_file, fernet, sha256_bytes, UPLOAD_DIR
@@ -131,6 +134,19 @@ def _offchain_json(o):
     }
 
 
+def _onchain_actor_label(actor: str) -> str:
+    """Map numeric on-chain actor / uploader id to a readable label; pass through legacy strings."""
+    s = (actor or "").strip()
+    if not s.isdigit():
+        return s
+    uid = int(s)
+    with SessionLocal() as db:
+        u = db.get(User, uid)
+        if u:
+            return f"{u.name} ({u.email}, id {uid})"
+    return s
+
+
 # ── Public / auth ─────────────────────────────────────────────────────────────
 
 
@@ -147,6 +163,9 @@ def api_auth_login():
     session["role"] = u.role
     session["name"] = u.name
     session.permanent = True
+    with SessionLocal() as db:
+        log_audit(db, username=u.email, action="login", detail=None)
+        db.commit()
     return jsonify(
         {
             "user": {"email": u.email, "name": u.name, "role": u.role, "id": u.id},
@@ -185,7 +204,7 @@ def api_auth_register():
     password = data.get("password") or ""
     password2 = data.get("password2") or ""
     name = (data.get("name") or "").strip()
-    role = data.get("role", "Member")
+    role = data.get("role", "Viewer")
     if not EMAIL_RE.match(email):
         return jsonify({"error": "Enter a valid email address."}), 400
     if len(password) < 8:
@@ -194,10 +213,18 @@ def api_auth_register():
         return jsonify({"error": "Passwords do not match."}), 400
     if not name:
         return jsonify({"error": "Name is required."}), 400
-    if role not in ("Investigator", "Member"):
-        return jsonify({"error": "Choose Investigator or Member."}), 400
+    if role not in ("Investigator", "Viewer", "Member"):
+        return jsonify({"error": "Choose Investigator or Viewer."}), 400
     try:
         register_user(email, password, name, role)
+        with SessionLocal() as db:
+            log_audit(
+                db,
+                username=email,
+                action="user_register",
+                detail=f"role={role}",
+            )
+            db.commit()
         return jsonify({"ok": True, "message": "Account created."})
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
@@ -306,7 +333,7 @@ def api_upload():
         return jsonify({"error": "No file selected."}), 400
     file = request.files["file"]
     encrypt = request.form.get("encrypt") in ("on", "true", "1")
-    actor = session["name"]
+    uploader_on_chain = str(session.get("user_id", ""))
     notes = request.form.get(
         "notes", "Evidence collected and recorded on blockchain"
     )
@@ -333,7 +360,7 @@ def api_upload():
             filename,
             ext,
             len(raw_bytes),
-            actor,
+            uploader_on_chain,
             encrypt,
         ).transact({"from": account, "gas": 3_000_000})
         w3.eth.wait_for_transaction_receipt(tx_hash)
@@ -414,7 +441,7 @@ def _evidence_list_items():
             return None, status, str(e)
     role = session.get("role")
     user_email = session.get("user")
-    if role in ("Investigator", "Member") and user_email:
+    if role in ("Investigator", "Member", "Viewer") and user_email:
         with SessionLocal() as db:
             allowed = set(
                 db.scalars(
@@ -453,13 +480,15 @@ def api_evidence_detail(evidence_id):
     if status["deployed"] and status["connected"]:
         try:
             raw = contract.functions.getEvidence(evidence_id).call()
+            ub = str(raw[5])
             ev_data = {
                 "id": raw[0],
                 "fileHash": raw[1],
                 "fileName": raw[2],
                 "fileType": raw[3],
                 "fileSize": raw[4],
-                "uploadedBy": raw[5],
+                "uploadedBy": ub,
+                "uploadedByLabel": _onchain_actor_label(ub),
                 "createdAt": time.strftime(
                     "%Y-%m-%d %H:%M:%S", time.localtime(raw[6])
                 ),
@@ -468,6 +497,8 @@ def api_evidence_detail(evidence_id):
             }
             raw_chain = contract.functions.getCustodyChain(evidence_id).call()
             chain = [format_event(e) for e in raw_chain]
+            for c in chain:
+                c["actor_label"] = _onchain_actor_label(str(c.get("actor", "")))
             validation_ok, validation_issues = validate_custody_chain(chain)
             with SessionLocal() as db:
                 integrity_score = compute_integrity_score(db, evidence_id, chain)
@@ -480,12 +511,13 @@ def api_evidence_detail(evidence_id):
     if locked and session.get("role") != "Admin":
         locked_view = True
     users_for_transfer = [u for u in all_usernames() if u != session["user"]]
+    can_manage = can_mutate_chain_custody(session.get("role"))
     return jsonify(
         {
             "blockchain": status,
             "evidence": ev_data,
             "chain": chain,
-            "action_names": ACTION_NAMES,
+            "action_names": ACTION_NAMES if can_manage else {},
             "offchain": _offchain_json(offchain),
             "integrity_score": integrity_score,
             "validation_ok": validation_ok,
@@ -493,7 +525,8 @@ def api_evidence_detail(evidence_id):
             "suspicious_flags": suspicious_flags,
             "locked_view": locked_view,
             "unlock_at": _dt_iso(unlock_at) if unlock_at else None,
-            "users_for_transfer": users_for_transfer,
+            "users_for_transfer": users_for_transfer if can_manage else [],
+            "can_manage_custody": can_manage,
             "error": err,
         }
     )
@@ -535,7 +568,7 @@ def api_log_action(evidence_id):
             evidence_id,
             ev[1],
             ACTION_CODES[action_name],
-            session["name"],
+            str(session.get("user_id", "")),
             notes,
         ).transact({"from": acct, "gas": 1_000_000})
         w3.eth.wait_for_transaction_receipt(tx)
@@ -577,6 +610,7 @@ def api_verify_get():
 
 @api_bp.route("/verify", methods=["POST"])
 @login_required
+@role_required("Admin", "Investigator")
 def api_verify_post():
     evidence_id = request.form.get("evidence_id", type=int)
     file = request.files.get("file")
@@ -610,7 +644,7 @@ def api_verify_post():
                     evidence_id,
                     new_hash,
                     ACTION_CODES["Verified"],
-                    session["name"],
+                    str(session.get("user_id", "")),
                     "Integrity verification performed — hash match",
                 ).transact({"from": acct, "gas": 1_000_000})
                 w3.eth.wait_for_transaction_receipt(vtx)
@@ -825,6 +859,8 @@ def api_transfers():
 @api_bp.route("/transfers/<int:tid>/approve", methods=["POST"])
 @login_required
 def api_transfer_approve(tid):
+    if not can_mutate_chain_custody(session.get("role")):
+        return jsonify({"error": "Forbidden."}), 403
     with SessionLocal() as db:
         tr = db.get(TransferRequest, tid)
         if tr is None or tr.status != "pending":
@@ -844,7 +880,7 @@ def api_transfer_approve(tid):
                 tr.evidence_id,
                 ev[1],
                 ACTION_CODES["Transferred"],
-                session["name"],
+                str(session.get("user_id", "")),
                 notes,
             ).transact({"from": acct, "gas": 1_500_000})
             w3.eth.wait_for_transaction_receipt(tx)
@@ -868,6 +904,8 @@ def api_transfer_approve(tid):
 @api_bp.route("/transfers/<int:tid>/reject", methods=["POST"])
 @login_required
 def api_transfer_reject(tid):
+    if not can_mutate_chain_custody(session.get("role")):
+        return jsonify({"error": "Forbidden."}), 403
     with SessionLocal() as db:
         tr = db.get(TransferRequest, tid)
         if tr is None or tr.status != "pending":
@@ -890,6 +928,7 @@ def api_transfer_reject(tid):
 
 @api_bp.route("/evidence/<int:evidence_id>/transfer-request", methods=["POST"])
 @login_required
+@role_required("Admin", "Investigator")
 def api_request_transfer(evidence_id):
     if not can_access_evidence(session["user"], evidence_id):
         return jsonify({"error": "forbidden"}), 403
@@ -988,13 +1027,17 @@ def api_evidence_timeline(evidence_id):
     if status["deployed"] and status["connected"]:
         try:
             raw = contract.functions.getEvidence(evidence_id).call()
+            ub = str(raw[5])
             ev_data = {
                 "id": raw[0],
                 "fileName": raw[2],
-                "uploadedBy": raw[5],
+                "uploadedBy": ub,
+                "uploadedByLabel": _onchain_actor_label(ub),
             }
             raw_chain = contract.functions.getCustodyChain(evidence_id).call()
             chain = [format_event(e) for e in raw_chain]
+            for c in chain:
+                c["actor_label"] = _onchain_actor_label(str(c.get("actor", "")))
         except Exception as e:
             err = str(e)
     return jsonify({"evidence": ev_data, "chain": chain, "error": err})
@@ -1048,10 +1091,10 @@ def api_admin_users_post():
     email = (data.get("email") or "").strip().lower()
     password = (data.get("password") or "").strip()
     name = (data.get("name") or "").strip()
-    role = data.get("role", "Member")
+    role = data.get("role", "Viewer")
     if not email or not password or not name:
         return jsonify({"error": "Email, password, and name are required."}), 400
-    if role not in ("Admin", "Investigator", "Member"):
+    if role not in ("Admin", "Investigator", "Member", "Viewer"):
         return jsonify({"error": "Invalid role."}), 400
     if len(password) < 8:
         return jsonify({"error": "Password must be at least 8 characters."}), 400
@@ -1069,7 +1112,7 @@ def api_admin_assign_get():
     with SessionLocal() as db:
         cases = db.scalars(select(ForensicCase).order_by(ForensicCase.id.desc())).all()
         user_rows = db.scalars(
-            select(User).where(User.role.in_(("Investigator", "Member")))
+            select(User).where(User.role.in_(("Investigator", "Member", "Viewer")))
         ).all()
         assignable_emails = [u.email for u in user_rows]
         assignments = db.scalars(
@@ -1109,12 +1152,12 @@ def api_admin_assign_post():
     role = data.get("assignee_role", "Investigator")
     with SessionLocal() as db:
         user_rows = db.scalars(
-            select(User).where(User.role.in_(("Investigator", "Member")))
+            select(User).where(User.role.in_(("Investigator", "Member", "Viewer")))
         ).all()
         assignable_emails = [u.email for u in user_rows]
     if not evidence_id or not assignee or assignee not in assignable_emails:
         return jsonify({"error": "Evidence ID and valid assignee required."}), 400
-    if role not in ("Investigator", "Member"):
+    if role not in ("Investigator", "Member", "Viewer"):
         return jsonify({"error": "Invalid assignee role."}), 400
     with SessionLocal() as db:
         db.merge(
@@ -1178,3 +1221,47 @@ def api_admin_requests_decide(rid):
             return jsonify({"error": "action must be approve or reject"}), 400
         db.commit()
     return jsonify({"ok": True})
+
+
+@api_bp.route("/admin/audit", methods=["GET"])
+@login_required
+@admin_required
+def api_admin_audit():
+    """Off-chain audit trail: user actions, uploads, verification attempts."""
+    limit = request.args.get("limit", default=150, type=int) or 150
+    limit = min(max(limit, 1), 500)
+    with SessionLocal() as db:
+        audit_rows = db.scalars(
+            select(AuditLogEntry).order_by(AuditLogEntry.created_at.desc()).limit(limit)
+        ).all()
+        ver_rows = db.scalars(
+            select(VerificationRecord)
+            .order_by(VerificationRecord.created_at.desc())
+            .limit(limit)
+        ).all()
+    return jsonify(
+        {
+            "audit": [
+                {
+                    "id": a.id,
+                    "username": a.username,
+                    "action": a.action,
+                    "detail": a.detail,
+                    "evidence_id": a.evidence_id,
+                    "case_id": a.case_id,
+                    "created_at": _dt_iso(a.created_at),
+                }
+                for a in audit_rows
+            ],
+            "verifications": [
+                {
+                    "id": v.id,
+                    "evidence_id": v.evidence_id,
+                    "success": v.success,
+                    "username": v.username,
+                    "created_at": _dt_iso(v.created_at),
+                }
+                for v in ver_rows
+            ],
+        }
+    )

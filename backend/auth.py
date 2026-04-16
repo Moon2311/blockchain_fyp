@@ -10,6 +10,10 @@ from sqlalchemy import select
 from database import CaseAssignment, SessionLocal, User
 from users_config import get_user_by_email, invalidate_users_cache
 
+# Roles that may be assigned evidence and see a scoped evidence list (not Admin).
+READ_SCOPED_ROLES = ("Investigator", "Member", "Viewer")
+# Member is legacy; new accounts should use Viewer (read-only).
+
 
 def _is_api_request() -> bool:
     return request.path.startswith("/api")
@@ -88,7 +92,7 @@ def member_allowed(f):
             if _is_api_request():
                 return jsonify({"error": "Unauthorized"}), 401
             return redirect("/")
-        if session.get("role") not in ("Admin", "Investigator", "Member"):
+        if session.get("role") not in ("Admin", "Investigator", *READ_SCOPED_ROLES):
             if _is_api_request():
                 return jsonify({"error": "Forbidden"}), 403
             flash("Access denied.", "danger")
@@ -105,7 +109,7 @@ def can_access_evidence(user_email: str, evidence_id: int) -> bool:
         return False
     if u.role == "Admin":
         return True
-    if u.role not in ("Investigator", "Member"):
+    if u.role not in READ_SCOPED_ROLES:
         return False
     with SessionLocal() as db:
         row = db.scalar(
@@ -117,9 +121,14 @@ def can_access_evidence(user_email: str, evidence_id: int) -> bool:
     return row is not None
 
 
+def can_mutate_chain_custody(role: str | None) -> bool:
+    """Upload, verify, log custody actions, request/approve chain-affecting transfers."""
+    return role in ("Admin", "Investigator")
+
+
 def register_user(email: str, password: str, name: str, role: str) -> None:
     """Register a new user with hashed password."""
-    if role not in ("Admin", "Investigator", "Member"):
+    if role not in ("Admin", "Investigator", "Member", "Viewer"):
         raise ValueError("Invalid role.")
     pw_hash = generate_password_hash(password)
     with SessionLocal() as db:

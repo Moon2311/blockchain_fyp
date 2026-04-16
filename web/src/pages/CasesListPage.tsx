@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Card } from "../components/ui/Card";
+import { useAuth } from "../hooks/useAuth";
 import { apiGet } from "../services/api";
 
 type CaseRow = {
@@ -12,7 +13,10 @@ type CaseRow = {
 };
 
 export function CasesListPage() {
+  const { user } = useAuth();
   const [cases, setCases] = useState<CaseRow[]>([]);
+  const canCreate =
+    user?.role === "Admin" || user?.role === "Investigator";
 
   useEffect(() => {
     apiGet<{ cases: CaseRow[] }>("/cases").then((r) => setCases(r.cases));
@@ -22,9 +26,11 @@ export function CasesListPage() {
     <div className="stack" style={{ paddingTop: "1rem" }}>
       <div className="row" style={{ justifyContent: "space-between" }}>
         <h1 style={{ margin: 0 }}>Cases</h1>
-        <Link to="/cases/new" style={{ fontWeight: 600 }}>
-          + New case
-        </Link>
+        {canCreate && (
+          <Link to="/cases/new" style={{ fontWeight: 600 }}>
+            + New case
+          </Link>
+        )}
       </div>
       <Card>
         <ul style={{ margin: 0, paddingLeft: "1.2rem" }}>
